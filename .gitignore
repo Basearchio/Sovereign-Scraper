@@ -1,0 +1,49 @@
+# 파이썬 캐시
+__pycache__/
+*.pyc
+
+# 런타임 재생성물 (--remember JSON 캐시, demo 캐시)
+cache/
+schema_cache.json
+
+# 크롤링 산출물 + '개인 실행 이력'은 무시(공개 repo 프라이버시).
+#   · output/saved/*.html  (받아온 HTML, 큼)              → 무시
+#   · output/<site>.csv    (결과 데이터, 재생성 가능)       → 무시
+#   · output/_runs.csv     (개인 실행 이력 = 내 검색어 전부) → 무시(남에게 무가치·프라이버시)
+output/
+
+# recipes/: 크롤 때마다 '자동 저장'되며 meta.url 에 내 '실제 크롤 URL'(=검색어)이 박힌다 →
+#   raw 공개는 _runs.csv 와 같은 프라이버시 누출 + 앞으로의 모든 크롤이 자동 커밋되는 footgun.
+#   그래서 자동 저장 recipes(및 _heal_hints.json 진단저널)는 무시하고, 공유 폴더의 '가이드(README)'만 추적.
+#   shared/inbox(남에게 받은 것)·shared/outbox(내가 보낼 마스킹본)는 '개인 작업물'이라 무시 —
+#   실제 공유는 별도 레지스트리 repo 에 브라우저 PR 로 올린다(recipes/shared/README.md 참고).
+recipes/*
+!recipes/shared/
+recipes/shared/inbox/
+recipes/shared/outbox/
+recipes/shared/registry_build/
+
+# 비밀/사설 설정 (LLM 키·사설 엔드포인트) — 절대 커밋 금지. 템플릿(.env.example)만 추적.
+.env
+.env.*
+!.env.example
+
+# 로컬 백업 스냅샷(zip) — 저장소에 넣지 않음
+backups/
+
+# 비공개 원본 문서(*.internal.md·CHANGELOG) + 익명화 생성기(치환표가 '어떤 사이트를 테스트했나'를
+#   노출) — 로컬 보관. 공개되는 건 생성물(_internal/SRS.md·CONTRIBUTING.md)뿐. 원본 수정 후
+#   `python _internal/_private/make_public_docs.py` 로 공개본 재생성(사이트 토큰 잔존 시 실패).
+_internal/_private/
+
+# 가상환경 + 첫 실행 선택 기억(개인 로컬 상태)
+.venv/
+venv/
+env/
+.shc_bootstrap.json
+
+# 에디터/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

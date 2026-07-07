@@ -1,0 +1,12 @@
+# 자가치유 크롤러 — 런타임 의존성
+# 설치:  pip install -r requirements.txt
+# 그리고 최초 1회(브라우저 렌더/시각적 피커용):  python -m playwright install chromium
+
+lxml>=5.0            # HTML 파싱(구조 시그니처·상대경로) — 코어 필수
+playwright>=1.40     # 렌더링(SPA)·시각적 피커. 설치 후 'playwright install chromium' 필요
+
+# 선택(없으면 표준 urllib 로 자동 폴백 — 코드에 내장). HTTP 안정성/속도 향상.
+requests>=2.28
+
+# 윈도우 전용: 내 크롬 Save-As 자동화(win32com/win32gui/win32clipboard)
+pywin32>=306 ; sys_platform == "win32"
