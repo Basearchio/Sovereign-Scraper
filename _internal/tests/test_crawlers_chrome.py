@@ -53,6 +53,42 @@ def test_engine_dropped_chrome_and_block():
         assert not hasattr(engine, name), f"engine 에 {name} 가 남아있음(이관 누락)"
 
 
+def test_correct_saved_filename_renames_wrong_default_name():
+    # ★실사용자 확인된 회귀: 저장창 파일명 칸 키 입력(Alt+N→Ctrl+A→붙여넣기) 중 일부가 씹히면
+    # (관리자 권한 문제와 같은 계열), 저장은 되지만 크롬의 기본 제안 이름(예: "av.html")으로
+    # 남는다 — 그대로 두면 (a) 레시피가 못 찾고 (b) 다음 replay가 같은 기본 이름으로 저장하려다
+    # 크롬의 '덮어쓸까요?' 확인창에 걸려 멎을 수 있다. GUI 없이 파이썬 파일 이동으로 정정한다.
+    import tempfile
+    import crawlers.chrome as chrome
+    d = tempfile.mkdtemp()
+    wrong = os.path.join(d, "av.html")
+    wrong_files = os.path.join(d, "av_files")
+    intended = os.path.join(d, "output_google_1.html")
+    with open(wrong, "w", encoding="utf-8") as f:
+        f.write("<html><body>hi</body></html>")
+    os.makedirs(wrong_files, exist_ok=True)
+    with open(os.path.join(wrong_files, "style.css"), "w") as f:
+        f.write("body{}")
+    logs = []
+    result = chrome._correct_saved_filename(wrong, intended, log=logs.append)
+    assert result == intended
+    assert os.path.exists(intended) and not os.path.exists(wrong)
+    assert os.path.isdir(os.path.join(d, "output_google_1_files")) and not os.path.isdir(wrong_files)
+    assert any("정정" in m or "correct" in m.lower() for m in logs)
+
+
+def test_correct_saved_filename_noop_when_already_correct():
+    import tempfile
+    import crawlers.chrome as chrome
+    d = tempfile.mkdtemp()
+    p = os.path.join(d, "output_google_1.html")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("hi")
+    logs = []
+    result = chrome._correct_saved_filename(p, p, log=logs.append)
+    assert result == p and logs == []   # 이미 맞으면 아무 것도 안 함(경고도 없음)
+
+
 def test_loader_and_cli_wire_to_crawlers():
     """[역할] 'DOM 획득'(크롬 Save As)은 loader 가, '다음 페이지 차단 감지'는 cli 가 crawlers 에서 배선.
     (v5.0: 안티봇 Save As 전환이 cli→loader.py 로 이관됨.)"""

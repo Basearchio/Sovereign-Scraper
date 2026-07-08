@@ -280,6 +280,41 @@ def _is_admin() -> "bool | None":
         return None
 
 
+def _correct_saved_filename(got: str, save_path: str, log=print) -> str:
+    """[순수 파일조작] 크롬이 저장한 실제 경로(got)가 의도한 경로(save_path)와 다르면 정정한다.
+
+    ★실사용자 확인된 회귀: 저장창의 파일명 칸에 Alt+N→Ctrl+A→붙여넣기 키 입력 중 일부가 씹히면
+    (관리자 권한이 아닐 때 합성 키 입력이 간헐적으로 전달 안 되는 것과 같은 근본 원인 계열), 저장창
+    자체는 뜨고 저장도 되지만 크롬의 기본 제안 파일명(예: "av.html")으로 저장돼버린다. 그냥 '성공'
+    으로 받아들이면 (a) 레시피가 기대하는 파일명과 달라 다음 실행에서 못 찾고, (b) 다음 replay
+    배치 작업이 같은 기본 파일명으로 다시 저장하려다 크롬의 '덮어쓸까요?' 확인창(우리 자동화가
+    처리 안 함)에 걸려 멎을 수 있다. → GUI 의존 없는 100% 확실한 파이썬 파일 이동으로 정정한다.
+    [반환] 최종적으로 사용할 경로(정정 성공 시 save_path, 실패 시 got 그대로)."""
+    if os.path.abspath(got) == os.path.abspath(save_path):
+        return got
+    from i18n import t
+    import shutil
+    log("  · " + t("⚠ 예상한 파일명이 아니라 크롬 기본 이름으로 저장된 것 같습니다({name}) — "
+                   "파일명 입력 키가 일부 씹혔을 수 있습니다(관리자 권한 문제와 같은 계열). "
+                   "올바른 이름으로 정정합니다.", name=os.path.basename(got)))
+    got_base = got.rsplit(".", 1)[0]
+    base = save_path.rsplit(".", 1)[0]
+    try:
+        if os.path.exists(save_path):
+            os.remove(save_path)
+        os.rename(got, save_path)
+        got_files = got_base + "_files"
+        if os.path.isdir(got_files):
+            if os.path.isdir(base + "_files"):
+                shutil.rmtree(base + "_files", ignore_errors=True)
+            os.rename(got_files, base + "_files")
+        return save_path
+    except OSError as e:
+        log("  · [" + t("저장경고") + f"] {type(e).__name__}: {e} "
+            f"({t('정정 실패 — 원래 파일명 그대로 사용')})")
+        return got
+
+
 def _set_clipboard(text: str) -> bool:
     """클립보드에 text 를 넣는다(경로 붙여넣기용). 성공 True."""
     try:
@@ -423,6 +458,9 @@ def chrome_save_as_fetch(url: str, save_path: str, log=print,
             t("{s}s 안에 저장 파일이 안 보임(저장창 포커스/저장 지연).", s=f"{save_wait:.0f}"))
         log("    " + t("크롬 창이 맨 앞이었는지 확인하고 다시 시도하세요."))
         return None
+
+    # 크롬이 기본 제안 파일명으로 저장해버렸을 수 있음(파일명 입력 키 일부 누락) → 정정.
+    got = _correct_saved_filename(got, save_path, log=log)
 
     try:
         with open(got, "rb") as f:
