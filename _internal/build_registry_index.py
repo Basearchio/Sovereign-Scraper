@@ -2,11 +2,12 @@
 """
 MODULE_NAME: build_registry_index.py  (유지보수 도구 · 별개 실행)
 PURPOSE: outbox 의 '마스킹된 공유 레시피'들을 스캔해 **공개 레지스트리 페이로드**(index.json + recipes/)를
-         만든다. 나중에 공개 `shc-recipes` repo 루트에 그대로 올리면 앱의 '온라인에서 찾기'가 작동한다.
-         ★현재 공개는 보류(i18n 후) — 이 도구는 '준비'만. 스위치는 준비돼 있게.
+         만든다. 기본 출력 위치(recipes/shared/registry/)가 곧 core.recipe_registry.DEFAULT_RAW_BASE 가
+         가리키는 곳 — 별도 repo에 옮길 필요 없이, 이 폴더를 그대로 git add·commit·push(PR)하면 앱의
+         '온라인에서 찾기'가 즉시 그 내용을 읽는다.
 DEPENDENCY: 표준 라이브러리 + core.schema/paths/capabilities/core.recipe_share·recipe_registry. leaf 아님(도구).
 
-사용: python _internal/build_registry_index.py            # outbox → recipes/shared/registry_build/
+사용: python _internal/build_registry_index.py            # outbox → recipes/shared/registry/
       python _internal/build_registry_index.py --src <dir> --out <dir>
 
 안전장치(공개 전 이중 방어): 레시피마다 '완전 마스킹' 재검 —
@@ -77,8 +78,8 @@ def collect(src_dir):
 def main():
     ap = argparse.ArgumentParser(description="공유 레시피 → 레지스트리 페이로드(index.json + recipes/) 생성")
     ap.add_argument("--src", default=paths.OUTBOX_DIR, help="마스킹 레시피 폴더(기본: recipes/shared/outbox)")
-    ap.add_argument("--out", default=os.path.join(paths.SHARED_DIR, "registry_build"),
-                    help="페이로드 출력 폴더(기본: recipes/shared/registry_build)")
+    ap.add_argument("--out", default=os.path.join(paths.SHARED_DIR, "registry"),
+                    help="페이로드 출력 폴더(기본: recipes/shared/registry — git 추적되는 실제 레지스트리)")
     args = ap.parse_args()
 
     if not os.path.isdir(args.src):
@@ -103,7 +104,8 @@ def main():
     print("\n✔ " + t("레지스트리 페이로드 생성 → {p}/", p=os.path.relpath(args.out, os.path.dirname(HERE))))
     print("   " + t("index.json ({n}개) + recipes/*.csv {skip}",
                   n=len(idx['recipes']), skip=(t("· 제외 {k}", k=len(skipped)) if skipped else "")))
-    print("   " + t("공개 준비되면: 이 폴더 내용을 공개 shc-recipes repo 루트에 올리고, .env 에 RECIPE_REGISTRY_RAW/WEB 설정."))
+    print("   " + t("이 폴더를 git add·commit 하고 PR을 올리면 '온라인에서 찾기'에 바로 반영됩니다 "
+                    "(별도 repo·설정 불필요 — 이 프로젝트 자신이 레지스트리)."))
     return 0
 
 

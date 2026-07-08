@@ -124,10 +124,12 @@ flowchart TD
 - **올리기**: 자동 업로드하지 않습니다(프라이버시). 검색어를 **마스킹**해 outbox로 뽑은 뒤, 브라우저로 업로드
   페이지를 열어 **사람이 검수해 PR로 제출**합니다. `온라인에서 찾기`로 공개 레지스트리를 검색해 inbox로 받을 수 있습니다.
 
-> 온라인 검색/받기를 켜려면 `.env` 에 레지스트리 주소를 넣으세요 (`.env.example` 참고):
+> 온라인 검색/받기는 기본값이 이미 이 프로젝트 자신(`recipes/shared/registry/`)을 가리켜서 별도 설정
+> 없이 바로 동작합니다. 자기 fork 로 별도 레지스트리를 운영하고 싶다면 `.env` 에서 덮어쓰세요
+> (`.env.example` 참고):
 > ```
-> RECIPE_REGISTRY_RAW=https://raw.githubusercontent.com/<계정>/shc-recipes/main/
-> RECIPE_REGISTRY_WEB=https://github.com/<계정>/shc-recipes
+> RECIPE_REGISTRY_RAW=https://raw.githubusercontent.com/<계정>/<내 fork>/main/recipes/shared/registry/
+> RECIPE_REGISTRY_WEB=https://github.com/<계정>/<내 fork>
 > ```
 
 ---

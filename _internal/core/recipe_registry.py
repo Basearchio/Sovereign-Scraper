@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 MODULE_NAME: core/recipe_registry.py
-PURPOSE: 공유 레시피 '레지스트리'(공개 GitHub repo) 읽기 클라이언트 — 받기(검색·적용)를 인증/git 없이 HTTPS 로만.
+PURPOSE: 공유 레시피 '레지스트리' 읽기 클라이언트 — 받기(검색·적용)를 인증/git 없이 HTTPS 로만.
          index.json 카탈로그를 받아 로컬에서 검색하고, 고른 레시피 CSV 를 다운로드한다.
          공유(올리기)는 앱이 직접 push 하지 않고 repo '업로드 페이지' URL 을 만들어 브라우저로 사람이 검수 제출한다
          (프라이버시: 레시피엔 크롤 URL=검색어가 박히므로 자동 push 금지. 마스킹은 core.recipe_share 가 담당).
+         기본 레지스트리는 '별도 repo'가 아니라 이 프로젝트 자신(Sovereign-Scraper) 의 recipes/shared/registry/
+         — 별도 repo를 만들 필요 없이, PR 하나로 바로 온라인 검색에 반영된다. 자기 fork 로 따로 운영하고
+         싶으면 .env 의 RECIPE_REGISTRY_RAW/WEB 로 덮어쓰면 된다.
 DEPENDENCY: 표준 라이브러리(urllib/json/os)만. 네트워크는 fetch 주입으로 대체(테스트·오프라인). 내부 상위 모듈 import 없음(leaf).
 
-레지스트리 구조(공개 repo):
+레지스트리 구조(raw_base 기준):
     index.json                     # 카탈로그(아래 스키마)
     recipes/<id>.csv               # 마스킹된 공유 레시피(recipe_share.sanitize_recipe 산출물)
 index.json:
@@ -20,9 +23,11 @@ import json
 import os
 from urllib.parse import urljoin
 
-# 기본 레지스트리(공개 repo). .env 의 RECIPE_REGISTRY_RAW / RECIPE_REGISTRY_WEB 로 덮어쓸 수 있음.
-DEFAULT_RAW_BASE = "https://raw.githubusercontent.com/OWNER/shc-recipes/main/"
-DEFAULT_REPO_WEB = "https://github.com/OWNER/shc-recipes"
+# 기본 레지스트리 = 이 repo 자신의 recipes/shared/registry/ (build_registry_index.py 의 --out 기본값과
+# 짝을 이룬다). .env 의 RECIPE_REGISTRY_RAW / RECIPE_REGISTRY_WEB 로 덮어쓸 수 있음(예: 자기 fork 운영).
+DEFAULT_RAW_BASE = ("https://raw.githubusercontent.com/Basearchio/Sovereign-Scraper/"
+                    "main/recipes/shared/registry/")
+DEFAULT_REPO_WEB = "https://github.com/Basearchio/Sovereign-Scraper"
 
 
 def resolve_registry(env=None):
@@ -36,8 +41,9 @@ def resolve_registry(env=None):
 
 
 def is_configured(raw_base):
-    """레지스트리가 실제 주소로 설정됐는지(기본 placeholder 'OWNER' 그대로면 아직 미설정)."""
-    return bool(raw_base) and "OWNER/" not in raw_base
+    """레지스트리 주소가 비어있지 않은지. 기본값이 이미 이 repo 를 가리키므로 보통 항상 참이고,
+    .env 에 빈 값을 넣어 의도적으로 끈 경우만 거짓."""
+    return bool((raw_base or "").strip())
 
 
 def _default_fetch(url, timeout=15):
@@ -89,8 +95,10 @@ def download_recipe(entry, raw_base, dest_dir, fetch=None):
 
 
 def share_page_url(repo_web):
-    """공유(올리기) 시 브라우저로 열 'repo 업로드' 페이지 URL. 사람이 마스킹된 CSV 를 올려 PR 로 검수."""
-    return f"{repo_web}/upload/main/recipes"
+    """공유(올리기) 시 브라우저로 열 'repo 업로드' 페이지 URL. 사람이 마스킹된 CSV 를 올려 PR 로 검수.
+    recipe_share/core.recipe_registry._recipe_share() 가 실제로 내보내는 폴더(recipes/shared/outbox)로
+    바로 열어야 '뽑아둔 파일을 드래그만 하면' 되는 흐름이 완성된다."""
+    return f"{repo_web}/upload/main/recipes/shared/outbox"
 
 
 def _entry_desc(rec):

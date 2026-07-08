@@ -132,10 +132,12 @@ it runs the crawl once, so **your own run history and your own recipe are create
   browser opens the upload page for **a human to review and submit as a PR**. Use `Find online` to search the
   public registry and pull recipes into your inbox.
 
-> To enable online search/fetch, add the registry address to `.env` (see `.env.example`):
+> Online search/fetch works out of the box — it points at this project's own repo
+> (`recipes/shared/registry/`) by default, no setup needed. Running your own fork with a separate
+> registry? Override it in `.env` (see `.env.example`):
 > ```
-> RECIPE_REGISTRY_RAW=https://raw.githubusercontent.com/<account>/shc-recipes/main/
-> RECIPE_REGISTRY_WEB=https://github.com/<account>/shc-recipes
+> RECIPE_REGISTRY_RAW=https://raw.githubusercontent.com/<account>/<your-fork>/main/recipes/shared/registry/
+> RECIPE_REGISTRY_WEB=https://github.com/<account>/<your-fork>
 > ```
 
 ---

@@ -29,7 +29,7 @@ def _fetch_for(mapping):
 
 def test_resolve_defaults_and_override():
     raw, web = R.resolve_registry()
-    assert raw.endswith("/") and "shc-recipes" in raw
+    assert raw.endswith("/") and "Sovereign-Scraper" in raw     # 기본값 = 이 프로젝트 자신
     assert web.startswith("https://github.com/")
     raw2, web2 = R.resolve_registry({"RECIPE_REGISTRY_RAW": "https://x.dev/r",
                                      "RECIPE_REGISTRY_WEB": "https://github.com/me/reg/"})
@@ -38,8 +38,9 @@ def test_resolve_defaults_and_override():
 
 
 def test_is_configured():
-    assert not R.is_configured(R.DEFAULT_RAW_BASE)              # placeholder(OWNER) → 미설정
+    assert R.is_configured(R.DEFAULT_RAW_BASE)          # 기본값이 이미 실제 repo → 설정된 것으로 봄
     assert R.is_configured("https://raw.githubusercontent.com/me/shc-recipes/main/")
+    assert not R.is_configured("")                      # 사용자가 .env 에 빈 값을 넣어 의도적으로 끈 경우
 
 
 def test_fetch_index_parses_and_filters_invalid():
@@ -80,8 +81,9 @@ def test_download_recipe_writes(tmp_path=None):
 
 
 def test_share_page_url():
+    # outbox 로 정확히 열려야 '뽑아둔 마스킹 파일을 드래그만' 하면 되는 흐름이 완성된다.
     assert R.share_page_url("https://github.com/me/shc-recipes") == \
-        "https://github.com/me/shc-recipes/upload/main/recipes"
+        "https://github.com/me/shc-recipes/upload/main/recipes/shared/outbox"
 
 
 def test_registry_is_leaf():
