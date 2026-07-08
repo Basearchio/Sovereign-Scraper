@@ -24,6 +24,11 @@ def _match_node(scope: HtmlElement, value: str):
     공백을 제거해 비교하므로 "시급12,000원" 처럼 사용자가 붙여 쓴 값도,
     HTML에 "시급 12,000원"/"12,000원" 식으로 있어도 매칭된다.
     우선순위: 완전일치 > 노드가 값의 일부(긴 쪽) > 노드가 값을 포함(군더더기 적은 쪽).
+
+    ★긴 자유 텍스트(이메일 본문 미리보기 등)를 손으로 옮겨 적으면 실제 DOM 텍스트와 완전히
+    똑같기 어렵다 — 그러면 진짜 대상 노드는 매칭에서 탈락하고, 우연히 값 안에 등장하는 짧은
+    조각(예: "AI-Hub" 속의 '-')만 매칭되는 구분자/기호 노드가 '유일한 후보'로 남아 이긴다.
+    한 글자짜리 우연 매칭은 애초에 후보에서 제외해 이런 오탐(엉뚱한 "-" 같은 값)을 막는다.
     """
     vns = re.sub(r"\s+", "", _norm(value))
     if not vns:
@@ -39,6 +44,8 @@ def _match_node(scope: HtmlElement, value: str):
         if tns == vns:
             score = 1000
         elif tns in vns:
+            if len(tns) < 2:                # 한 글자 우연 매칭(구분자·기호 등) 제외
+                continue
             score = 200 + len(tns)          # 값의 일부 → 더 많이 덮을수록 좋음
         elif vns in tns:
             score = 100 - (len(tns) - len(vns))   # 값 포함 → 군더더기 적을수록 좋음

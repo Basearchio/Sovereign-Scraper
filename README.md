@@ -31,7 +31,7 @@
    · Everything needed (Python packages + browser) is **installed automatically**. One-time, takes a few minutes.
 3. When the menu appears, pick **`1. Crawl`** → paste the URL → enter one line of a value you saw on screen
    ```
-   Example input:  [Gangnam] Part-time hiring for July event@#12,000@#Gangnam-gu Samseong-dong
+   Example input:  [Chelsea] Weekend event staff wanted@#$18/hr@#Chelsea, Manhattan
    → Automatically figures out the title / price / location fields and extracts the full list as CSV
    ```
 4. Results land in **`output/`**, and the reusable recipe lands in **`recipes/`**.
@@ -194,7 +194,7 @@ The LLM is called directly over an OpenAI-compatible REST API (no extra SDK need
 ## Power Users (CLI) & Development
 
 ```bash
-python cli.py "<URL>" --example "Title@#12,000@#Gangnam-gu"   # extract straight from an example
+python cli.py "<URL>" --example "Title@#$18/hr@#Manhattan"    # extract straight from an example
 python cli.py "<URL>" --pages 5                                # walk 5 pages
 python cli.py "<infinite-scroll URL>" --scroll                 # scroll to the bottom
 python replay.py all                                           # replay every saved successful crawl (for schedulers)

@@ -736,31 +736,42 @@ def main():
         print("[2] " + t("저장된 스키마 사용 → 바로 추출 (필요 시 자가 치유)"))
     else:
         # 기본: 보이는 값을 텍스트로 받아 by-example
-        print("[2] " + t("원하는 한 항목의 값을 '보이는 대로' 입력하세요 (HTML 구조분석+LLM으로 파싱)."))
-        print("    " + t("필드 구분은 @# 로 하세요 (숫자 쉼표 12,000 등과 안 겹침)."))
-        print("    " + t("예) [삼성] 코엑스 7월4일 행사 알바 모집@#12,000@#강남구 삼성동"))
-        pick_path = _pickable_html(target)   # save_as 스냅샷/로컬 HTML 이 있으면 마우스 피킹 가능
-        prompt = "\n" + t("값 입력: ")
-        if pick_path:
-            print("    " + t("또는 'p' → 화면에서 마우스로 클릭해 값 고르기") + f" [{os.path.basename(pick_path)}]")
-            print("       " + t("(클릭=텍스트 · Alt+클릭=링크 · Shift+클릭=이미지, '완료' 누르면 끝)"))
-            prompt = "\n" + t("값 입력 (또는 'p'=클릭 피킹): ")
-        ex = input(prompt).strip()
-        pick_kinds = None   # 피킹일 때만 값별 종류(text/link/image) — 이미지 구조매칭용
-        if pick_path and ex.lower() in ("p", "pick", "클릭"):
-            from crawlers.picker import pick_from_html, picks_to_example, picks_kinds
-            try:
-                _picks = pick_from_html(pick_path, log=print)
-                ex = picks_to_example(_picks)
-                pick_kinds = picks_kinds(_picks)
-            except RuntimeError as e:
-                print("  · " + t("피커 실행 불가({e}) → 직접 입력하세요.", e=e))
-                ex = input(prompt).strip()
+        # 피커에서 골랐다가 전부 되돌리고 '완료'하거나, 그냥 빈 값을 입력하면(오타 등) 예전엔
+        # 바로 종료했다 — 재시도하려면 프로그램을 처음부터 다시 켜야 했음. 대신 여기서 다시
+        # 물어보고 [2]로 되돌아간다(피커 세션이 오래 걸리거나 실패해도 재시도 가능).
+        ex, pick_kinds = "", None
+        while True:
+            print("[2] " + t("원하는 한 항목의 값을 '보이는 대로' 입력하세요 (HTML 구조분석+LLM으로 파싱)."))
+            print("    " + t("필드 구분은 @# 로 하세요 (숫자 쉼표 12,000 등과 안 겹침)."))
+            print("    " + t("예) [삼성] 코엑스 7월4일 행사 알바 모집@#12,000@#강남구 삼성동"))
+            pick_path = _pickable_html(target)   # save_as 스냅샷/로컬 HTML 이 있으면 마우스 피킹 가능
+            prompt = "\n" + t("값 입력: ")
+            if pick_path:
+                print("    " + t("또는 'p' → 화면에서 마우스로 클릭해 값 고르기") + f" [{os.path.basename(pick_path)}]")
+                print("       " + t("(클릭=텍스트 · Alt+클릭=링크 · Shift+클릭=이미지, '완료' 누르면 끝)"))
+                print("       " + t("· 화면이 안 보이면 → 툴바의 '읽기모드' 버튼을 누르세요."))
+                print("       " + t("· 읽기모드에서도 안 보이면 → 마우스 휠로 아래로 스크롤해 보세요."))
+                prompt = "\n" + t("값 입력 (또는 'p'=클릭 피킹): ")
+            ex = input(prompt).strip()
+            pick_kinds = None   # 피킹일 때만 값별 종류(text/link/image) — 이미지 구조매칭용
+            if pick_path and ex.lower() in ("p", "pick", "클릭"):
+                from crawlers.picker import pick_from_html, picks_to_example, picks_kinds
+                try:
+                    _picks = pick_from_html(pick_path, log=print)
+                    ex = picks_to_example(_picks)
+                    pick_kinds = picks_kinds(_picks)
+                except RuntimeError as e:
+                    print("  · " + t("피커 실행 불가({e}) → 직접 입력하세요.", e=e))
+                    ex = input(prompt).strip()
+                if ex:
+                    print("  → " + t("피킹된 예시값: {ex}", ex=ex))
             if ex:
-                print("  → " + t("피킹된 예시값: {ex}", ex=ex))
-        if not ex:
-            print(t("입력 없음 — 종료."))
-            sys.exit(0)
+                break
+            retry = input("  " + t("입력된 값이 없습니다. 다시 시도할까요? [Y/n]: ")).strip().lower()
+            if retry in ("n", "no", "ㄴ"):
+                print(t("입력 없음 — 종료."))
+                sys.exit(0)
+            print()
         parse_method, example_input = "by-example", ex
         dom = select_by_example(eng, dom, ex, llm_name=True, target=target,
                                 wait=args.wait, kinds=pick_kinds)

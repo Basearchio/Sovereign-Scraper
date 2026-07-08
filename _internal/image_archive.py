@@ -15,6 +15,8 @@ import hashlib
 import os
 import shutil
 
+from i18n import t     # 다국어: 로그 문구 번역(미번역은 한국어 폴백)
+
 # 매직바이트 → 확장자 (Content-Type 이 없거나 애매할 때 내용으로 판정)
 _MAGIC = [
     (b"\xff\xd8\xff", ".jpg"),
@@ -122,7 +124,7 @@ def archive_images(rows, img_fields, out_dir, fetch=None, log=print, referer="")
                 got = fetch(v)
                 if not got:
                     failed += 1
-                    log(f"    · [이미지 실패] {v[:60]}")
+                    log("    · [" + t("이미지 실패") + f"] {v[:60]}")
                     continue
                 ctype, data = got
                 ext = _url_ext_hint(v) or detect_ext(ctype, data)

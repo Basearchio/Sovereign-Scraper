@@ -4,8 +4,8 @@ MODULE_NAME: crawlers/chrome.py
 PURPOSE: '진짜 크롬' 수집 전략 — 정적/헤드리스가 안티봇(Akamai/Cloudflare/PerimeterX/DataDome)에
          막힐 때, 사용자의 실제 Chrome 세션(로그인/쿠키)으로 페이지를 받는 최후 경로.
          두 방식: (1) profile 디버그 attach(CDP), (2) Save As 완전자동(pywin32 키입력).
-DEPENDENCY: lxml(필수), Chrome 설치. profile=Playwright(CDP), save_as=pywin32(win32com/win32gui/
-            win32clipboard). 미설치/실패 시 모두 None → 호출부(cli)가 폴백/안내.
+DEPENDENCY: lxml(필수), Chrome 설치, i18n(leaf, 로그 문구 번역). profile=Playwright(CDP),
+            save_as=pywin32(win32com/win32gui/win32clipboard). 미설치/실패 시 모두 None → 호출부(cli)가 폴백/안내.
 
 [검증된 주요 사이트 및 케이스]
 - 쿠팡 등 Akamai/Cloudflare 계열: save_as(Ctrl+S) 경로로 내 세션 HTML 확보(디버그 포트 불필요 →
@@ -24,6 +24,7 @@ from __future__ import annotations
 import os
 
 from lxml import html as lxml_html
+from i18n import t     # 다국어: 사용자 출력 번역(미번역은 한국어 폴백)
 
 
 def _find_chrome():
@@ -127,9 +128,9 @@ def _kill_chrome(log=print):
     try:
         subprocess.run(["taskkill", "/F", "/IM", "chrome.exe", "/T"],
                        capture_output=True)
-        log("  · 백그라운드 크롬 정리(taskkill)")
+        log("  · " + t("백그라운드 크롬 정리(taskkill)"))
     except Exception as e:
-        log(f"  · 크롬 정리 실패: {e}")
+        log("  · " + t("크롬 정리 실패: {e}", e=e))
 
 
 def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
@@ -151,7 +152,7 @@ def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
     except ImportError:
-        log("  · [크롬오류] Playwright 미설치 (pip install playwright)")
+        log("  · [" + t("크롬오류") + "] " + t("Playwright 미설치 (pip install playwright)"))
         return None
 
     import subprocess, time
@@ -180,36 +181,36 @@ def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
     try:
         # ① attach-first: 이미 열린 내 디버그 크롬에 연결
         if _port_open(port):
-            log(f"  · 디버그 크롬 감지(:{port}) → 내 크롬 세션에 연결(attach)")
+            log("  · " + t("디버그 크롬 감지(:{port}) → 내 크롬 세션에 연결(attach)", port=port))
             content = _scrape_open_browser(endpoint, url, wait_ms, scroll,
                                            own_tab=True, log=log,
                                            scroll_seconds=scroll_seconds)
         elif not chrome:
-            log("  · [크롬오류] chrome.exe 를 찾지 못함")
+            log("  · [" + t("크롬오류") + "] " + t("chrome.exe 를 찾지 못함"))
             return None
         elif not real:
-            log("  · [크롬오류] 내 Chrome 프로필(User Data)을 찾지 못함")
+            log("  · [" + t("크롬오류") + "] " + t("내 Chrome 프로필(User Data)을 찾지 못함"))
             return None
         else:
             # ② 내 프로필을 디버그로 실행 → 포트 열리면 그 즉시 추출
-            log(f"  · 내 크롬(실제 프로필)을 디버그로 실행(:{port})...")
+            log("  · " + t("내 크롬(실제 프로필)을 디버그로 실행(:{port})...", port=port))
             ok = _launch_real()
             if not ok and allow_kill:
                 # 포트가 끝내 안 열림 = (디버그 없이) 기존 크롬에 위임된 것 → 정리 후 재시도
-                log("  · 디버그 포트 안 열림(기존 크롬에 위임 추정) → 잔류 크롬 정리 후 재시도")
+                log("  · " + t("디버그 포트 안 열림(기존 크롬에 위임 추정) → 잔류 크롬 정리 후 재시도"))
                 _kill_chrome(log)
                 time.sleep(3)
                 ok = _launch_real()
             if not ok:
-                log("  · [크롬오류] 내 프로필 디버그 실행 실패.")
-                log("    크롬을 '완전히' 종료(작업표시줄/백그라운드 앱 포함) 후 다시 실행하세요.")
+                log("  · [" + t("크롬오류") + "] " + t("내 프로필 디버그 실행 실패."))
+                log("    " + t("크롬을 '완전히' 종료(작업표시줄/백그라운드 앱 포함) 후 다시 실행하세요."))
                 return None
-            log("  · 내 크롬 디버그 실행됨 → HTML 추출 (이 크롬은 닫지 않고 둠)")
+            log("  · " + t("내 크롬 디버그 실행됨 → HTML 추출 (이 크롬은 닫지 않고 둠)"))
             content = _scrape_open_browser(endpoint, url, wait_ms, scroll,
                                            own_tab=False, log=log,
                                            scroll_seconds=scroll_seconds)
     except Exception as e:
-        log(f"  · [크롬오류] {type(e).__name__}: {e}")
+        log("  · [" + t("크롬오류") + f"] {type(e).__name__}: {e}")
         content = None
     # 주의: 내가 띄운 크롬은 절대 terminate 하지 않는다(= 내 크롬, 살려둠).
 
@@ -222,7 +223,7 @@ def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
             with open(save_path, "w", encoding="utf-8") as f:
                 f.write(content)
         except Exception as e:
-            log(f"  · [저장경고] {type(e).__name__}: {e}")
+            log("  · [" + t("저장경고") + f"] {type(e).__name__}: {e}")
     return dom
 
 
@@ -261,8 +262,22 @@ def _wait_save_dialog(shell, log, tries: int = 3, per_try: float = 6.0) -> bool:
             if _foreground_is_dialog():
                 return True
         if attempt < tries - 1:
-            log(f"  · 저장창이 아직 안 떠서 Ctrl+S 재시도({attempt + 2}/{tries})...")
+            log("  · " + t("저장창이 아직 안 떠서 Ctrl+S 재시도({n}/{tries})...",
+                          n=attempt + 2, tries=tries))
     return False
+
+
+def _is_admin() -> "bool | None":
+    """현재 프로세스가 관리자 권한(elevated)으로 실행 중인가. 판단 불가 시 None.
+
+    ★실사용자 확인(2026-07): 일반 권한으로 실행하면 SendKeys(Ctrl+S)가 크롬 창에 '보이지 않게'
+    씹혀 저장 대화상자가 절대 안 뜨고, 관리자 권한으로 실행하면 정상 작동함을 재현 확인. 이 환경의
+    Windows 입력 격리(UIPI 계열) 정책이 원인으로 추정 — 창 포커스/타이밍 문제가 아니었음."""
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return None
 
 
 def _set_clipboard(text: str) -> bool:
@@ -297,12 +312,15 @@ def chrome_save_as_fetch(url: str, save_path: str, log=print,
     try:
         import win32com.client  # noqa: F401
     except ImportError:
-        log("  · [저장자동화오류] pywin32 미설치 (pip install pywin32)")
+        log("  · [" + t("저장자동화오류") + "] " + t("pywin32 미설치 (pip install pywin32)"))
         return None
     chrome = _find_chrome()
     if not chrome:
-        log("  · [크롬오류] chrome.exe 를 찾지 못함")
+        log("  · [" + t("크롬오류") + "] " + t("chrome.exe 를 찾지 못함"))
         return None
+    if _is_admin() is False:
+        log("  · " + t("⚠ 관리자 권한이 아닙니다 — 일부 Windows 환경은 이 상태에서 Ctrl+S 입력이 "
+                       "크롬에 전달되지 않습니다. 실패하면 관리자 권한으로 다시 실행해 보세요."))
     import subprocess, time, shutil
 
     save_path = os.path.abspath(save_path)
@@ -322,7 +340,7 @@ def chrome_save_as_fetch(url: str, save_path: str, log=print,
     # 1) 내 진짜 크롬으로 페이지 열기 (디버그 없음 = 내 세션/쿠키)
     args = [chrome, "--new-window", url] if new_window else [chrome, url]
     subprocess.Popen(args)
-    log(f"  · 내 크롬으로 페이지 여는 중... (로드 대기 {load_wait:.0f}s)")
+    log("  · " + t("내 크롬으로 페이지 여는 중... (로드 대기 {s}s)", s=f"{load_wait:.0f}"))
     time.sleep(load_wait)
 
     shell = win32com.client.Dispatch("WScript.Shell")
@@ -335,10 +353,14 @@ def chrome_save_as_fetch(url: str, save_path: str, log=print,
     shell.SendKeys("{ESC}")          # 떠 있을 수 있는 잔여 저장창/팝업 정리
     time.sleep(0.3)
     # 3) Ctrl+S → '저장 대화상자가 실제로 뜰 때까지' 폴링(안 뜨면 재시도)
-    log("  · Ctrl+S 전송 → 저장창 대기")
+    log("  · " + t("Ctrl+S 전송 → 저장창 대기"))
     if not _wait_save_dialog(shell, log):
-        log("  · [저장자동화오류] 저장 대화상자가 안 떴습니다(페이지 로딩/포커스 문제).")
-        log("    크롬 창이 맨 앞이었는지 확인하고 다시 시도하세요.")
+        log("  · [" + t("저장자동화오류") + "] " + t("저장 대화상자가 안 떴습니다(페이지 로딩/포커스 문제)."))
+        if _is_admin() is False:
+            log("    " + t("관리자 권한이 아니라서 Ctrl+S 입력이 크롬에 전달되지 않았을 가능성이 "
+                           "높습니다 — 관리자 권한으로 다시 실행해 보세요."))
+        else:
+            log("    " + t("크롬 창이 맨 앞이었는지 확인하고 다시 시도하세요."))
         return None
     time.sleep(0.5)
     # 4) 파일명 칸을 '명시적으로' 포커스(Alt+N) → 전체선택 → 경로를 '붙여넣기'.
@@ -397,21 +419,22 @@ def chrome_save_as_fetch(url: str, save_path: str, log=print,
             shell.SendKeys("{ESC}")   # 멈춘 저장창(경로 오류 등) 닫아 잔존 모달 제거
         except Exception:
             pass
-        log(f"  · [저장자동화오류] {save_wait:.0f}s 안에 저장 파일이 안 보임(저장창 포커스/저장 지연).")
-        log("    크롬 창이 맨 앞이었는지 확인하고 다시 시도하세요.")
+        log("  · [" + t("저장자동화오류") + "] " +
+            t("{s}s 안에 저장 파일이 안 보임(저장창 포커스/저장 지연).", s=f"{save_wait:.0f}"))
+        log("    " + t("크롬 창이 맨 앞이었는지 확인하고 다시 시도하세요."))
         return None
 
     try:
         with open(got, "rb") as f:
             content = f.read()   # 로컬 HTML(bytes → lxml 인코딩 자동감지)
     except Exception as e:
-        log(f"  · [저장읽기오류] {type(e).__name__}: {e}")
+        log("  · [" + t("저장읽기오류") + f"] {type(e).__name__}: {e}")
         return None
     # 'Webpage, Complete' 가 만든 리소스 폴더(_files: 이미지·CSS)는 '유지'한다 — 시각적 피커가
     # 그 로컬 리소스로 오프라인 렌더(요청 0건)하기 위함. 엔진 파싱엔 .html 만 쓰지만 삭제하지 않는다.
-    log(f"  · 저장 완료 → {got}")
+    log("  · " + t("저장 완료 → {p}", p=got))
     try:
         return lxml_html.fromstring(content)
     except Exception as e:
-        log(f"  · [파싱오류] {type(e).__name__}: {e}")
+        log("  · [" + t("파싱오류") + f"] {type(e).__name__}: {e}")
         return None

@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import lxml.html as H
 import engine
 import locators
-from locators import locate_by_example
+from locators import locate_by_example, _match_node
 
 # 3개의 반복 레코드(영상 카드처럼). 각 카드에 제목/채널이 짝지어 있음.
 _LIST = """<html><body><ul>
@@ -47,6 +47,23 @@ def test_by_example_mixed_records_detected():
     assert err and err.startswith(locators._MIXED_ROWS_TAG), f"불일치 감지 실패(err={err!r})"
     # 어긋난 값이 무엇인지 사용자에게 짚어줘야 함
     assert "채널나" in err
+
+
+def test_match_node_rejects_single_char_coincidental_match():
+    """[역할] ★회귀가드 — 손으로 옮겨 적은 긴 자유 텍스트(이메일 미리보기 등)가 실제 DOM 과
+    한 글자도 안 겹치면, "AI-Hub" 처럼 값 안에 우연히 들어있는 '-' 하나만 매칭되는 구분자 span 이
+    '유일한 후보'로 이겨서는 안 된다(실사용자 확인: f3 필드가 전부 "-" 로만 뽑힘)."""
+    row = H.fragment_fromstring(
+        '<div><span class="sep">-</span><span class="snippet">완전히 다른 실제 미리보기 텍스트입니다</span></div>')
+    typed = "이규빈님, AI-Hub 서비스 회원가입에 감사드립니다"   # 실제 DOM 과 안 겹치는, 손으로 옮겨적은 값
+    assert _match_node(row, typed) is None       # '-' 구분자가 거짓 후보로 뽑히면 안 됨
+
+
+def test_match_node_still_matches_short_exact_value():
+    """[역할] 길이 가드가 '완전일치'까지 막으면 안 됨(예: 짧은 코드/약어 같은 정상 필드값)."""
+    row = H.fragment_fromstring('<div><span class="code">A</span><span class="name">긴 상품명 텍스트</span></div>')
+    node = _match_node(row, "A")
+    assert node is not None and node.get("class") == "code"
 
 
 if __name__ == "__main__":
