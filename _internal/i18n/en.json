@@ -182,7 +182,7 @@
 
   "대상 : {target}": "Target : {target}",
   "DOM 로드 중...": "Loading DOM...",
-  "스크롤 모드: 브라우저로 끝까지 스크롤하여 로드...": "Scroll mode: scrolling to the bottom in a browser to load...",
+  "스크롤 모드: 브라우저로 {s}초간 스크롤하여 로드...": "Scroll mode: scrolling in a browser for {s}s to load...",
   "스크롤 로드 실패(Playwright 필요). pip install playwright && python -m playwright install chromium": "Scroll load failed (Playwright required). pip install playwright && python -m playwright install chromium",
   "포털 → 보드 선택": "Portal → board selection",
   "들어간 보드 : {target}": "Entered board : {target}",
@@ -281,7 +281,8 @@
   "크롤링": "Crawl",
   "화면에서 본 값을 주면 대화형 없이 바로 추출": "Give the values you see on screen → extract directly, no prompts",
   "최대 N페이지까지 순회 (기본 1페이지)": "Paginate up to N pages (default 1)",
-  "무한스크롤: 끝까지 스크롤해 전부 로드": "Infinite scroll: scroll to the end to load everything",
+  "무한스크롤: 브라우저로 스크롤해 로드(끝나면 조기 종료)": "Infinite scroll: scroll in a browser to load (stops early once the end is reached)",
+  "스크롤 지속 시간(초, 기본 15) — 끝이 없는 피드 대비": "Scroll duration in seconds (default 15) — for feeds with no real end",
   "내 진짜 크롬 Save As 로 강제 로드(안티봇·무거운 SPA)": "Force-load via real Chrome Save As (anti-bot · heavy SPAs)",
   "느린 SPA 렌더 추가 대기 N초 (예: 30)": "Extra wait N seconds for slow SPA rendering (e.g. 30)",
   "저장 방식: append/history/overwrite/upsert": "Save mode: append/history/overwrite/upsert",

@@ -549,7 +549,11 @@ def main():
                     help="크롤링할 최대 페이지 수 (기본 1=현재 페이지만; 예: --pages 5). "
                          "레시피에 기록되어 재현 시 유지됨. 차단/무거운SPA는 이 값과 무관하게 1p")
     ap.add_argument("--scroll", action="store_true",
-                    help="무한스크롤 사이트: 브라우저로 끝까지 스크롤해 모두 로드")
+                    help="무한스크롤 사이트: 브라우저로 스크롤해 로드 "
+                         "(--scroll-seconds 시간 동안, 바닥에 닿으면 조기 종료)")
+    ap.add_argument("--scroll-seconds", type=float, default=15.0,
+                    help="스크롤 지속 시간(초, 기본 15). 끝이 없는 피드도 있으므로 "
+                         "'끝까지'가 아니라 이 시간만큼만 스크롤 (예: --scroll-seconds 30)")
     ap.add_argument("--wait", type=int, default=0,
                     help="느린 SPA(항공/지도 등): 렌더/Save As 시 추가 대기 초 (예: --wait 30)")
     ap.add_argument("--chrome", action="store_true",
@@ -674,8 +678,9 @@ def main():
     print("\n■ " + t("대상 : {target}", target=target))
     print("\n[1] " + t("DOM 로드 중..."))
     if args.scroll:
-        print("  · " + t("스크롤 모드: 브라우저로 끝까지 스크롤하여 로드..."))
-        dom = _playwright_fetch(target, scroll=True, settle_ms=args.wait * 1000)
+        print("  · " + t("스크롤 모드: 브라우저로 {s}초간 스크롤하여 로드...", s=args.scroll_seconds))
+        dom = _playwright_fetch(target, scroll=True, scroll_seconds=args.scroll_seconds,
+                                settle_ms=args.wait * 1000)
         if dom is None:
             print("[" + t("에러") + "] " + t("스크롤 로드 실패(Playwright 필요). pip install playwright && python -m playwright install chromium"))
             sys.exit(2)

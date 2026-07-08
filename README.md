@@ -5,6 +5,13 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+> **⚠️ Not a bypass tool.** Every load path here (static fetch → headless render → your real Chrome
+> `Save As`) only reaches what your own browser/account can already reach — none of it is designed to
+> defeat a site's bot-detection, CAPTCHA, or access controls. If a site blocks automated access, treat
+> that as the site's decision, not an obstacle to route around. Because this tool can also drive your
+> real, logged-in Chrome session, misusing it against sites that don't want automated access carries
+> real risk (blocked account, ToS violation, legal exposure) — that risk is yours, not this project's.
+
 > [🇺🇸 English](README.md) | 🇰🇷 [한국어](README.ko.md)
 
 > **This project is licensed under AGPL-3.0.** If you use this technology to provide or deploy a network

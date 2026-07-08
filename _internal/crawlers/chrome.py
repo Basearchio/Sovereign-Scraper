@@ -62,11 +62,12 @@ def _free_port() -> int:
     return p
 
 
-def _scrape_open_browser(endpoint, url, wait_ms, scroll, own_tab, log):
+def _scrape_open_browser(endpoint, url, wait_ms, scroll, own_tab, log, scroll_seconds=15.0):
     """이미 떠 있는 CDP 엔드포인트(=실제 크롬)에 붙어 url 내용을 받아 HTML 문자열 반환.
 
     own_tab=True 면 새 탭을 열어 받고 닫는다(사용자 기존 탭 안 건드림 → attach 모드).
     own_tab=False 면 우리가 띄운 전용 크롬이라 그 탭을 그대로 쓴다.
+    scroll_seconds: 무한스크롤 시 최대 스크롤 시간(초). 높이 정체 시 조기 종료(dynamic.py 와 동일 정책).
     """
     from playwright.sync_api import sync_playwright
     import time
@@ -96,7 +97,8 @@ def _scrape_open_browser(endpoint, url, wait_ms, scroll, own_tab, log):
         page.wait_for_timeout(wait_ms)   # 안티봇 JS·콘텐츠 안정화 대기
         if scroll:
             prev_h = -1
-            for _ in range(15):
+            deadline = time.monotonic() + scroll_seconds
+            while time.monotonic() < deadline:
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 page.wait_for_timeout(800)
                 h = page.evaluate("document.body.scrollHeight")
@@ -131,7 +133,8 @@ def _kill_chrome(log=print):
 
 
 def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
-                         wait_ms: int = 6000, scroll: bool = False, log=print,
+                         wait_ms: int = 6000, scroll: bool = False,
+                         scroll_seconds: float = 15.0, log=print,
                          allow_kill: bool = True):
     """[내 크롬 전용] 사용자의 '진짜 Chrome 프로필'로만 렌더된 DOM 을 받는다.
 
@@ -179,7 +182,8 @@ def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
         if _port_open(port):
             log(f"  · 디버그 크롬 감지(:{port}) → 내 크롬 세션에 연결(attach)")
             content = _scrape_open_browser(endpoint, url, wait_ms, scroll,
-                                           own_tab=True, log=log)
+                                           own_tab=True, log=log,
+                                           scroll_seconds=scroll_seconds)
         elif not chrome:
             log("  · [크롬오류] chrome.exe 를 찾지 못함")
             return None
@@ -202,7 +206,8 @@ def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
                 return None
             log("  · 내 크롬 디버그 실행됨 → HTML 추출 (이 크롬은 닫지 않고 둠)")
             content = _scrape_open_browser(endpoint, url, wait_ms, scroll,
-                                           own_tab=False, log=log)
+                                           own_tab=False, log=log,
+                                           scroll_seconds=scroll_seconds)
     except Exception as e:
         log(f"  · [크롬오류] {type(e).__name__}: {e}")
         content = None
