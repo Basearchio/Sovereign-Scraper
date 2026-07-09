@@ -328,10 +328,10 @@ def action_settings():
         print("\n── " + t("설정") + " ──")
         print("  1. " + t("LLM 공급자 설정 (.env — 로컬/클라우드)"))
         print("  2. " + t("레시피 기본 설정 (기본 저장/로드 방식)"))
-        print("  5. 언어 / Language (" + t("현재: {lang}", lang=i18n.current_lang()) + ")")
         print("  · " + t("개발자용(읽기 전용)") + " ·")
         print("  3. " + t("정합성 점검 (doctor — 파일 수정 안 함)"))
         print("  4. " + t("역량 매트릭스 (가져온 필드 표 · 공개용 마스킹)"))
+        print("  5. 언어 / Language (" + t("현재: {lang}", lang=i18n.current_lang()) + ")")
         print("  0. " + t("뒤로"))
         sel = input("  " + t("번호: ")).strip().lower()
         if sel in ("0", "", "q", "b"):

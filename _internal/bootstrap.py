@@ -19,7 +19,7 @@ import os
 import subprocess
 import sys
 
-from i18n import t     # 다국어: 사용자 출력 번역(stdlib-only leaf → venv 전에도 안전, 미번역은 한국어 폴백)
+from i18n import t, set_lang, _read_env_lang  # 다국어: stdlib-only leaf → venv 전에도 안전, 미번역은 한국어 폴백
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 프로젝트 루트(_internal 의 부모)
 VENV = os.path.join(HERE, ".venv")
@@ -69,6 +69,46 @@ def _file_hash(p):
         return ""
 
 
+def _set_lang_in_env(lang):
+    """루트 .env 에 LANG=<lang> 을 쓴다(다른 키·줄은 보존, 없으면 새로 만듦). 표준 라이브러리만
+    (start.py 의 _set_env 는 아직 못 씀 — bootstrap 은 내부 모듈을 안 부르는 leaf 라서 직접 구현)."""
+    root_env = os.path.join(HERE, ".env")
+    lines, found = [], False
+    try:
+        with open(root_env, encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and "=" in stripped \
+                        and stripped.split("=", 1)[0].strip() == "LANG":
+                    lines.append(f"LANG={lang}\n")
+                    found = True
+                    continue
+                lines.append(line if line.endswith("\n") else line + "\n")
+    except FileNotFoundError:
+        pass
+    if not found:
+        lines.append(f"LANG={lang}\n")
+    try:
+        with open(root_env, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except Exception:
+        pass   # 실패해도 이번 실행은 set_lang() 으로 이미 반영됨 — 다음 실행에 다시 물어볼 뿐
+
+
+def _ask_language():
+    """.env 에 LANG 이 아예 없으면(진짜 첫 실행) 언어부터 물어본다 — venv 질문조차 뭔 말인지 모른 채
+    영어로 나오면 비전공자가 당황하므로, 그보다 먼저 배치. 아직 언어를 모르는 시점이라 이 프롬프트
+    자체는 한국어/영어를 병기(그 아래부터는 고른 언어로 t() 가 알아서 나옴)."""
+    print("\n┌─ 언어 선택 / Language ───────────────────────────")
+    print("│ 1) 한국어")
+    print("│ 2) English")
+    ans = input("└ 번호 / number [Enter=2]: ").strip()
+    lang = "ko" if ans == "1" else "en"
+    set_lang(lang)              # 이번 실행에 바로 반영(뒤따르는 venv 질문부터 적용)
+    _set_lang_in_env(lang)      # 다음 실행부터도 기억
+    print()
+
+
 def _install_deps(vpy):
     """venv 에 의존성 자동설치(pip + playwright 브라우저). 비전공자가 pip 를 몰라도 되게."""
     print("  · " + t("의존성 설치 중(pip)... 처음 한 번, 잠시 걸릴 수 있어요."))
@@ -85,6 +125,8 @@ def ensure_env(interactive: bool = True):
     """진입점 최상단에서 호출. 필요하면 venv 준비 후 그 파이썬으로 현재 프로세스를 재실행한다."""
     if _in_any_venv() or os.environ.get("SHC_NO_BOOTSTRAP") == "1":
         return
+    if interactive and _isatty() and not _read_env_lang():
+        _ask_language()    # .env 에 LANG 이 아예 없으면(진짜 첫 실행) venv 질문보다 먼저 언어부터
     cfg = _load_cfg()
     if "use_venv" not in cfg:                     # 첫 실행
         if not (interactive and _isatty()):
