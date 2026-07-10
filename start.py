@@ -368,8 +368,9 @@ def action_llm_config():
         print(f"  BASE_URL : {cur.get('LLM_BASE_URL', t('(미설정 → 기본 로컬 LM Studio)'))}")
         print(f"  MODEL    : {cur.get('LLM_MODEL', t('(미설정)'))}")
         print(f"  API_KEY  : {_mask_key(cur.get('LLM_API_KEY', ''))}")
-        print("  " + t("심층 재학습(전체 HTML LLM 분석): {s}", s=('ON' if _auto_heal_on() else 'OFF'))
-              + t("  — 값싼 방법 실패 시 save_as 후 전체 HTML 을 LLM 으로 분석해 재학습"))
+        print("  " + t("심층 재학습(전체 HTML LLM 분석): {s}", s=('ON' if _auto_heal_on() else 'OFF')))
+        print("    " + t("⚠ 페이지 전체 HTML 을 LLM 에 보내는 방식이라 토큰을 많이 씁니다 — "
+                        "클라우드 LLM(유료)이면 비용에 유의하세요."))
         print("\n  " + t("공급자 선택:"))
         for i, (label, _b, _m, _k) in enumerate(_LLM_PRESETS, 1):
             print(f"    {i}. " + t(label))

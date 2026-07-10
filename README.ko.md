@@ -5,6 +5,15 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+## 📺 실제로 보기 (짧은 데모)
+
+| 1. 예시 값으로 웹 스크래핑하기 | 2. 저장한 작업 재현하기 |
+| :---: | :---: |
+| [![No-Code Visual Picker & Auto-Parsing](https://img.youtube.com/vi/tdjkJWvwg5s/0.jpg)](https://www.youtube.com/watch?v=tdjkJWvwg5s) | [![No-Code Web Scraping Replay Demo](https://img.youtube.com/vi/1F7CiudHOuk/0.jpg)](https://www.youtube.com/watch?v=1F7CiudHOuk) |
+| *코드 없이 클릭·타이핑만으로 자동 파싱* | *규칙·코드 없이 한 번 클릭으로 재현* |
+
+---
+
 > **⚠️ 우회(bypass) 프로그램이 아닙니다.** 이 도구의 모든 수집 경로(정적 fetch → 헤드리스 렌더 → 내 진짜
 > 크롬 `Save As`)는 어디까지나 **내 브라우저·내 계정이 이미 접근할 수 있는 범위**만 가져옵니다 — 사이트의
 > 봇 탐지·캡차·접근 제어를 뚫도록 설계된 기능은 없습니다. 사이트가 자동 수집을 막으면 그건 우회할 장애물이

@@ -5,6 +5,15 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+## 📺 See It In Action (Quick Demos)
+
+| 1. Web Scraping by Example | 2. How to Replay Any Task |
+| :---: | :---: |
+| [![No-Code Visual Picker & Auto-Parsing](https://img.youtube.com/vi/tdjkJWvwg5s/0.jpg)](https://www.youtube.com/watch?v=tdjkJWvwg5s) | [![No-Code Web Scraping Replay Demo](https://img.youtube.com/vi/1F7CiudHOuk/0.jpg)](https://www.youtube.com/watch?v=1F7CiudHOuk) |
+| *No-Code Visual Picker & Auto-Parsing* | *1-Click Replay Without Rules or Code* |
+
+---
+
 > **⚠️ Not a bypass tool.** Every load path here (static fetch → headless render → your real Chrome
 > `Save As`) only reaches what your own browser/account can already reach — none of it is designed to
 > defeat a site's bot-detection, CAPTCHA, or access controls. If a site blocks automated access, treat

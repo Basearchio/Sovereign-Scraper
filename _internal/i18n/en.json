@@ -83,7 +83,6 @@
   "(미설정 → 기본 로컬 LM Studio)": "(unset → default local LM Studio)",
   "(미설정)": "(unset)",
   "심층 재학습(전체 HTML LLM 분석): {s}": "Deep re-learning (full-HTML LLM analysis): {s}",
-  "  — 값싼 방법 실패 시 save_as 후 전체 HTML 을 LLM 으로 분석해 재학습": "  — on cheap-method failure: save_as, then LLM-analyze full HTML to re-learn",
   "공급자 선택:": "Choose provider:",
   "심층 재학습 켜기/끄기": "Toggle deep re-learning",
   "현재 설정으로 연결 테스트": "Test connection with current settings",
@@ -520,5 +519,6 @@
   "(⚠ 다만 로봇임을 숨기지 않으므로, 봇을 차단하는 사이트에서는 접속이 거부될 수 있습니다.)": "(⚠ Note: it does not disguise itself as a bot, so sites that block bots may refuse the connection.)",
   "(내 실제 계정으로 접속하여 로그인이 필요하거나 막힌 사이트에도 대부분 접근할 수 있습니다.)": "(Connects with your real account, so it can reach most login-required or blocked sites.)",
   "(⚠ 다만 지나치게 자주 사용하면 해당 계정이 정지(밴)될 위험이 있습니다.)": "(⚠ Note: using it too frequently risks having that account suspended or banned.)",
-  "(로그인이 필요 없는 사이트라면 save_as보다 빠르게 수집할 수 있습니다.)": "(For sites that don't require login, it can collect data faster than save_as.)"
+  "(로그인이 필요 없는 사이트라면 save_as보다 빠르게 수집할 수 있습니다.)": "(For sites that don't require login, it can collect data faster than save_as.)",
+  "⚠ 페이지 전체 HTML 을 LLM 에 보내는 방식이라 토큰을 많이 씁니다 — 클라우드 LLM(유료)이면 비용에 유의하세요.": "⚠ It sends the entire page HTML to the LLM, so it uses a lot of tokens — watch your costs if you're on a paid cloud LLM."
 }
