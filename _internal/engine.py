@@ -33,12 +33,11 @@ Playwright(headless) + playwright-stealth / curl-impersonate 로 교체하면 �
 
 from __future__ import annotations
 
-import json
 import os
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import asdict
-from typing import Callable, Optional
+from typing import Optional
 
 from lxml import html as lxml_html
 from lxml.html import HtmlElement

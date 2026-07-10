@@ -54,15 +54,6 @@ def _port_open(port: int, host: str = "127.0.0.1") -> bool:
         return False
 
 
-def _free_port() -> int:
-    import socket
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    p = s.getsockname()[1]
-    s.close()
-    return p
-
-
 def _scrape_open_browser(endpoint, url, wait_ms, scroll, own_tab, log, scroll_seconds=15.0):
     """이미 떠 있는 CDP 엔드포인트(=실제 크롬)에 붙어 url 내용을 받아 HTML 문자열 반환.
 

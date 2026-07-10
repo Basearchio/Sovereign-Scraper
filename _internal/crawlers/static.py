@@ -16,7 +16,6 @@ DEPENDENCY: lxml(필수), requests(선택; 없으면 urllib 폴백).
 from __future__ import annotations
 
 from lxml import html as lxml_html
-from lxml.html import HtmlElement
 
 from crawlers.base import default_headers
 

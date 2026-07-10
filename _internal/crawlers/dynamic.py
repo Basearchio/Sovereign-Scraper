@@ -23,7 +23,6 @@ DEPENDENCY: lxml(필수), playwright(선택; 미설치/실패 시 None → 호�
 from __future__ import annotations
 
 from lxml import html as lxml_html
-from lxml.html import HtmlElement
 
 from crawlers.base import _UA
 
