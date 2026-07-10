@@ -213,7 +213,7 @@ Full CLI options, verified sites, and architecture are documented in the appendi
 **[`_internal/SRS.md`](_internal/SRS.md)** (Korean, canonical spec).
 
 ```bash
-python _internal/tests/run_tests.py     # full test suite (currently 235)
+python _internal/tests/run_tests.py     # full test suite (currently 254)
 ```
 
 ---

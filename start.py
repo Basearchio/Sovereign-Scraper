@@ -189,7 +189,7 @@ def _recipe_search_online():
     print("  · " + t("공유 레시피 목록을 불러오는 중..."))
     entries = reg.fetch_index(raw)
     if not entries:
-        print("  " + t("레지스트리를 읽지 못했습니다(주소/네트워크 확인)."))
+        print("  " + t("아직 공유된 레시피가 없습니다(또는 레지스트리 접속 실패 — 주소/네트워크 확인)."))
         return
     q = input("  " + t("검색어(사이트/카테고리/필드 · 빈칸=전체 {n}개): ", n=len(entries))).strip()
     hits = reg.search(entries, q)

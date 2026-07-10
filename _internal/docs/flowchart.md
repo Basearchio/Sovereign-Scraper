@@ -7,7 +7,9 @@
 
 ```mermaid
 flowchart TD
-    Start(["start.bat · python start.py"]) --> Boot{".venv 첫 실행?"}
+    Start(["start.bat · python start.py"]) --> Lang{".env 에 LANG 있음?"}
+    Lang -- "아니오 (첫 실행)" --> AskLang["언어 선택<br/>1) 한국어 · 2) English"] --> Boot
+    Lang -- "예" --> Boot{".venv 첫 실행?"}
     Boot -- "예 (권장·기본)" --> Venv[".venv 생성 + 의존성 자동설치<br/>(pip + playwright chromium)<br/>→ venv 로 재실행"]
     Boot -- "아니오 / 이미 venv" --> Menu["메 뉴"]
     Venv --> Menu
@@ -67,9 +69,9 @@ flowchart LR
       P2 --> P3["→ recipes/shared/outbox/"]
       P3 --> P4["업로드 페이지 브라우저 열기<br/>사람이 검수 후 PR"]
     end
-    subgraph FIND ["온라인에서 찾기 (선택 · .env 설정 시)"]
+    subgraph FIND ["온라인에서 찾기 (기본 활성 · 이 repo 자체 레지스트리, .env 로 재정의 가능)"]
       direction TB
-      S1["공개 repo index.json<br/>HTTPS fetch"] --> S2["키워드 검색"]
+      S1["레지스트리 index.json<br/>HTTPS fetch"] --> S2["키워드 검색"]
       S2 --> S3["다운로드 → inbox/"]
     end
     FIND -.->|inbox 채움| IN
