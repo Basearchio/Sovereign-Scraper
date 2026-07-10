@@ -105,8 +105,8 @@ def action_recipes():
     while True:
         print("\n── " + t("레시피 (공유 받기/올리기)") + " ──")
         print("  1. " + t("읽어들이기 (받은 레시피 → 내 URL 에 적용·실행)"))
-        print("  2. " + t("공유하기 (내 레시피 마스킹 → outbox → 브라우저 업로드)"))
-        print("  3. " + t("온라인에서 찾기 (레지스트리 검색 → inbox 로 받기)"))
+        print("  2. " + t("공유하기 (내 레시피 마스킹 → outbox → 공유 게시판에 새 글쓰기)"))
+        print("  3. " + t("온라인에서 찾기 (공유 게시판 검색 → inbox 에 저장)"))
         print("  0. " + t("뒤로"))
         sel = input("  " + t("번호: ")).strip().lower()
         if sel in ("0", "", "q", "b"):
@@ -178,53 +178,59 @@ def _recipe_read_in():
 
 
 def _recipe_search_online():
-    """레지스트리 검색 → 선택 → inbox 로 다운로드 → (선택) 바로 읽어들이기."""
+    """공유 게시판(Discussions) 검색 → 브라우저에서 사람이 훑어보고 CSV 를 inbox 에 저장 → 읽어들이기."""
+    import webbrowser
     import paths
-    from core import recipe_registry as reg
-    raw, _web = reg.resolve_registry(_read_env())
-    if not reg.is_configured(raw):
-        print("  " + t("⚠ 공유 레지스트리 주소가 아직 설정되지 않았습니다."))
-        print("     " + t(".env 에 RECIPE_REGISTRY_RAW / RECIPE_REGISTRY_WEB 를 넣으세요(.env.example 참고)."))
-        return
-    print("  · " + t("공유 레시피 목록을 불러오는 중..."))
-    entries = reg.fetch_index(raw)
-    if not entries:
-        print("  " + t("아직 공유된 레시피가 없습니다(또는 레지스트리 접속 실패 — 주소/네트워크 확인)."))
-        return
-    q = input("  " + t("검색어(사이트/카테고리/필드 · 빈칸=전체 {n}개): ", n=len(entries))).strip()
-    hits = reg.search(entries, q)
-    if not hits:
-        print("  " + t("일치하는 레시피가 없습니다."))
-        return
-    for i, e in enumerate(hits, 1):
-        print(f"    {i}. [{e.get('site','')}] {e.get('desc') or e.get('id')}"
-              + "  · " + t("필드={f}", f=', '.join(e.get('fields', []) or []))
-              + (('  · ' + e['category']) if e.get('category') else ''))
-    sel = input("  " + t("받을 번호(빈칸=취소): ")).strip()
-    if not sel.isdigit() or not (1 <= int(sel) <= len(hits)):
-        return
-    try:
-        src = reg.download_recipe(hits[int(sel) - 1], raw, paths.inbox_dir())
-    except Exception as ex:
-        print("  " + t("다운로드 실패: {e}", e=ex))
-        return
-    print("  ✔ " + t("받음 → recipes/shared/inbox/{name}", name=os.path.basename(src)))
-    if input("  " + t("지금 읽어들일까요? [Y/n]: ")).strip().lower() in ("", "y", "yes", "ㅇ"):
-        _import_recipe_file(src)
+    from core import recipe_discussions as disc
+    web, category = disc.resolve_discussions(_read_env())
+    q = input("  " + t("검색어(빈칸=전체 목록): ")).strip()
+    url = disc.search_url(web, category, q)
+    print("  · " + t("브라우저에서 공유 게시판을 엽니다..."))
+    webbrowser.open(url)
+    print("  " + t("원하는 글을 찾으면, 글 속 CSV 코드블록 내용을 통째로 복사해 아래 폴더에"))
+    print("  " + t("'.csv' 파일로 저장하세요(파일명은 자유 — 예: 사이트_필드1_필드2.csv):"))
+    print(f"    {os.path.relpath(paths.inbox_dir(), HERE)}")
+    if input("  " + t("저장을 마쳤으면 지금 읽어들일까요? [Y/n]: ")).strip().lower() in ("", "y", "yes", "ㅇ"):
+        _recipe_read_in()
 
 
 def _recipe_share():
-    """내 레시피를 마스킹해 outbox 로 export(자기설명 이름) 후, repo 업로드 페이지를 브라우저로 열어 PR 제출."""
-    from core import recipe_registry as reg
-    _raw, web = reg.resolve_registry(_read_env())
+    """내 레시피를 마스킹해 outbox 로 export 후, 공유 게시판(Discussions)에 새 글쓰기를 제목/본문
+    프리필해서 브라우저로 엶. 제출 전 마스킹 결과를 사람이 확인하도록 안내한다."""
+    import webbrowser
+    from urllib.parse import urlparse
+    import paths
+    from core import recipe_discussions as disc
+    from core.schema import Schema
+    web, category = disc.resolve_discussions(_read_env())
     print("  · " + t("내 성공 레시피를 마스킹해 recipes/shared/outbox/ 로 뽑습니다(개인정보 검수 필수)."))
     print("    " + t("이름은 Enter=기본(사이트_필드…) 또는 직접 입력(예: 구글_이메일제목_이메일내용)."))
+    outbox = paths.outbox_dir()
+    before = set(os.listdir(outbox)) if os.path.isdir(outbox) else set()
     action_export()
-    url = reg.share_page_url(web)
-    print("\n  · " + t("검수한 recipes/shared/outbox/*.csv 를 올릴 '업로드 페이지'를 브라우저로 엽니다."))
-    print("    " + t("(파일을 끌어다 놓고 'Propose changes'로 PR 제출 → 관리자가 검토 후 반영.)"))
-    if input("  " + t("브라우저로 열까요? [{url}] [Y/n]: ", url=url)).strip().lower() in ("", "y", "yes", "ㅇ"):
-        import webbrowser
+    after = set(os.listdir(outbox)) if os.path.isdir(outbox) else set()
+    new_files = sorted(f for f in (after - before) if f.lower().endswith(".csv"))
+    if not new_files:
+        print("  " + t("새로 뽑힌 파일을 찾지 못했습니다(취소했거나 실패한 것으로 보입니다)."))
+        return
+    path = os.path.join(outbox, new_files[0])
+    title = new_files[0][:-4]
+    try:
+        sch, murl, load_method, _w, _p = Schema.from_csv_recipe(path)
+        fields = [n for n in sch.fields if not n.endswith("_url")]
+        site = urlparse(murl).netloc or title
+        with open(path, encoding="utf-8-sig") as f:
+            csv_text = f.read()
+        body = disc.build_post_body(site, fields, load_method, csv_text)
+    except Exception:
+        csv_text, body = "", ""
+    url, included = disc.new_post_url(web, category, title, body)
+    print("\n  · " + t("공유 게시판에 새 글을 미리 작성해 브라우저로 엽니다 — 마스킹 결과를 한 번 더"))
+    print("    " + t("확인한 뒤 제출하세요(게시판은 누구나 바로 볼 수 있습니다)."))
+    if not included and csv_text:
+        print("  " + t("⚠ 본문이 길어 자동으로 채우지 못했습니다 — 아래 CSV 내용을 복사해 글 본문에 붙여넣으세요:"))
+        print(csv_text)
+    if input("  " + t("브라우저로 열까요? [Y/n]: ")).strip().lower() in ("", "y", "yes", "ㅇ"):
         webbrowser.open(url)
 
 

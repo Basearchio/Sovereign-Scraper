@@ -139,17 +139,24 @@ it runs the crawl once, so **your own run history and your own recipe are create
   `Enter = apply the verified recipe as-is and run` / `type anything = start fresh from scratch`.
   Applying is itself one run, so it creates a `_runs.csv` entry and your own recipe — no more
   "I got this, now what?" orphan state.
-- **Uploading**: nothing is auto-uploaded (privacy). Your search term is **masked** into an outbox export, then a
-  browser opens the upload page for **a human to review and submit as a PR**. Use `Find online` to search the
-  public registry and pull recipes into your inbox.
+- **Uploading**: nothing is auto-uploaded (privacy). Your search term is **masked** into an outbox export, then
+  a browser opens a pre-filled **new post on the sharing board** (GitHub Discussions) for you to review and
+  submit yourself. The board is open — no maintainer approval needed to post — so the masking review happens
+  on your side, before you hit submit.
+- **Finding**: `Find online` opens the sharing board in your browser (searched, if you gave a keyword). Copy the
+  CSV code block from a post you like into `recipes/shared/inbox/` as a `.csv` file, then `Import` picks it up
+  exactly like any other received recipe.
 
-> Online search/fetch works out of the box — it points at this project's own repo
-> (`recipes/shared/registry/`) by default, no setup needed. Running your own fork with a separate
-> registry? Override it in `.env` (see `.env.example`):
+> The sharing board is this project's own
+> [GitHub Discussions → Recipes](https://github.com/Basearchio/Sovereign-Scraper/discussions/categories/recipes)
+> category by default, no setup needed. Running your own fork with a separate board? Override it in `.env`
+> (see `.env.example`):
 > ```
-> RECIPE_REGISTRY_RAW=https://raw.githubusercontent.com/<account>/<your-fork>/main/recipes/shared/registry/
-> RECIPE_REGISTRY_WEB=https://github.com/<account>/<your-fork>
+> RECIPE_DISCUSSIONS_REPO=https://github.com/<account>/<your-fork>
+> RECIPE_DISCUSSIONS_CATEGORY=recipes
 > ```
+> Search only opens a browser (no sign-in needed to read); the API that could search Discussions
+> automatically requires a GitHub token even for public repos, so this stays a human-in-the-loop step by design.
 
 ---
 

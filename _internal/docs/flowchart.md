@@ -21,7 +21,7 @@ flowchart TD
     M1 --> Crawl["크롤 파이프라인<br/>(그림 2)"]
     M2 --> Chain["체인 파이프라인<br/>(목록 링크 → 상세 단일 레코드)"]
     M3 --> Replay["_runs.csv 성공건 → 입력 없이 재현<br/>→ 윈도우 스케줄러로 정기 수집"]
-    M4 --> Reg["레시피 레지스트리<br/>(그림 3)"]
+    M4 --> Reg["레시피 공유<br/>(그림 3)"]
     M5 --> Set["LLM 공급자 · 저장/로드 기본값<br/>· doctor · 역량 매트릭스"]
 ```
 
@@ -51,7 +51,7 @@ flowchart TD
     G --> K["replay / 스케줄러로 정기 재현<br/>(레시피 자동 로드)"]
 ```
 
-## 3. 레시피 공유 — 읽어들이기(inbox) / 공유하기(outbox) / 온라인 검색
+## 3. 레시피 공유 — 읽어들이기(inbox) / 공유하기(outbox → 게시판) / 게시판 검색
 
 ```mermaid
 flowchart LR
@@ -67,15 +67,18 @@ flowchart LR
       direction TB
       P1["마스킹 export<br/>(검색어·example 제거)"] --> P2["자기설명 이름<br/>Enter=사이트_필드…/직접입력"]
       P2 --> P3["→ recipes/shared/outbox/"]
-      P3 --> P4["업로드 페이지 브라우저 열기<br/>사람이 검수 후 PR"]
+      P3 --> P4["Discussions '새 글쓰기' 브라우저 열기<br/>제목·본문(매니페스트+CSV) 프리필<br/>사람이 검수 후 직접 제출(승인 없이 즉시 게시)"]
     end
-    subgraph FIND ["온라인에서 찾기 (기본 활성 · 이 repo 자체 레지스트리, .env 로 재정의 가능)"]
+    subgraph FIND ["온라인에서 찾기 (기본 활성 · 이 repo 자체 Discussions, .env 로 재정의 가능)"]
       direction TB
-      S1["레지스트리 index.json<br/>HTTPS fetch"] --> S2["키워드 검색"]
-      S2 --> S3["다운로드 → inbox/"]
+      S1["Discussions 'Recipes' 카테고리<br/>브라우저로 열기(검색어 포함)"] --> S2["사람이 글을 훑어보고<br/>CSV 코드블록 복사"]
+      S2 --> S3["inbox/ 에 .csv 로 저장"]
     end
     FIND -.->|inbox 채움| IN
 ```
+
+> Discussions 는 public repo 라도 API 검색에 GitHub 토큰이 필요해(무인증 원칙과 충돌) 검색은
+> 브라우저를 여는 것까지만 자동화하고, 나머지(글 훑어보기·CSV 복사)는 사람이 한다.
 
 ## 4. 배포 구조 — front / _internal
 

@@ -132,16 +132,23 @@ flowchart TD
 - **읽어들이기**: inbox 목록에서 고르면 **사이트·필드(매니페스트)** 를 보여주고 → 내 URL 입력 →
   `Enter=검증된 레시피 그대로 적용·실행` / `아무거나 입력=처음부터 새로 만들기`.
   적용은 곧 한 번의 실행이라 `_runs.csv` 기록과 내 레시피가 생겨 **"받았는데 뭘 해야 하지?"** 가 사라집니다.
-- **올리기**: 자동 업로드하지 않습니다(프라이버시). 검색어를 **마스킹**해 outbox로 뽑은 뒤, 브라우저로 업로드
-  페이지를 열어 **사람이 검수해 PR로 제출**합니다. `온라인에서 찾기`로 공개 레지스트리를 검색해 inbox로 받을 수 있습니다.
+- **올리기**: 자동 업로드하지 않습니다(프라이버시). 검색어를 **마스킹**해 outbox로 뽑은 뒤, 브라우저로
+  **공유 게시판(GitHub Discussions)에 제목/본문이 미리 채워진 새 글쓰기**를 엽니다. 게시판은 관리자
+  승인 없이 누구나 즉시 글을 올릴 수 있어서, 마스킹 검수는 제출 '전'에 본인이 직접 합니다.
+- **찾기**: `온라인에서 찾기`를 누르면 브라우저로 공유 게시판이 열립니다(검색어 입력 시 검색). 마음에 드는
+  글의 CSV 코드블록을 통째로 복사해 `recipes/shared/inbox/`에 `.csv` 파일로 저장하면, `읽어들이기`가
+  그대로 받은 레시피처럼 처리합니다.
 
-> 온라인 검색/받기는 기본값이 이미 이 프로젝트 자신(`recipes/shared/registry/`)을 가리켜서 별도 설정
-> 없이 바로 동작합니다. 자기 fork 로 별도 레지스트리를 운영하고 싶다면 `.env` 에서 덮어쓰세요
-> (`.env.example` 참고):
+> 공유 게시판은 기본값이 이미 이 프로젝트 자신의 GitHub Discussions
+> ([Recipes 카테고리](https://github.com/Basearchio/Sovereign-Scraper/discussions/categories/recipes))를
+> 가리켜서 별도 설정 없이 바로 동작합니다. 자기 fork 로 별도 게시판을 운영하고 싶다면 `.env` 에서
+> 덮어쓰세요(`.env.example` 참고):
 > ```
-> RECIPE_REGISTRY_RAW=https://raw.githubusercontent.com/<계정>/<내 fork>/main/recipes/shared/registry/
-> RECIPE_REGISTRY_WEB=https://github.com/<계정>/<내 fork>
+> RECIPE_DISCUSSIONS_REPO=https://github.com/<계정>/<내 fork>
+> RECIPE_DISCUSSIONS_CATEGORY=recipes
 > ```
+> 검색은 브라우저만 엶(로그인 불필요) — Discussions를 앱이 자동으로 검색하려면 public repo 라도
+> GitHub 토큰이 필요해서, 이 단계는 의도적으로 사람이 직접 확인하도록 남겨뒀습니다.
 
 ---
 
