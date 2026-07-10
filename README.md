@@ -1,7 +1,9 @@
 # Sovereign-Scraper
 
-**A self-healing web scraper for data sovereignty**
-*Self-Healing Web Data Extraction Engine*
+**Sovereign-Scraper is a local-first data extraction engine designed to work independently of LLMs.**
+It analyzes each page's DOM directly — static fetch, headless render, or your own browser session,
+whichever a site needs — creates reusable extraction recipes, and optionally uses AI for semantic
+field mapping and self-healing.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 

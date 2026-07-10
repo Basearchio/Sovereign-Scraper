@@ -1,7 +1,9 @@
 # Sovereign-Scraper
 
-**데이터 주권을 위한 자가 치유형 웹 스크래퍼**
-*Self-Healing Web Data Extraction Engine*
+**Sovereign-Scraper는 LLM 없이도 독립적으로 동작하는 로컬 우선(local-first) 데이터 추출
+엔진입니다.** 사이트에 필요한 방식(정적 요청·헤드리스 렌더링·직접 로그인한 브라우저)으로 페이지의
+DOM을 직접 분석해 재사용 가능한 레시피를 만들고, 선택적으로 AI를 통해 의미 기반 필드 매핑과
+자가 치유를 수행합니다.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
