@@ -423,22 +423,31 @@ def chrome_save_as_fetch(url: str, save_path: str, log=print,
             pass
         return max(cands, key=os.path.getmtime) if cands else None
 
-    # 'Webpage, Complete' 는 리소스까지 받아 마무리가 느리다 → 넉넉히 대기하고,
-    # 파일이 보이면 '크기가 안정될 때까지'(쓰기 진행 중일 수 있음) 확인 후 채택.
-    deadline = time.time() + save_wait
+    # 저장 대화상자가 뜨고 Enter 까지 눌렀으므로 '저장은 이미 진행 중'이다. 그러니
+    # 파일이 '아직 안 나타났을 때'만 save_wait 만큼 기다리고, 일단 파일이 나타나면
+    # 'Webpage, Complete'(리소스까지 받아 느림, CNN 등)라도 '크기가 안정될 때까지'
+    # 시간제한 없이 기다린다 — 저장은 거의 실패하지 않으므로 고정 컷(옛 30s)으로 느린
+    # 페이지를 헛되이 포기하지 않는다. (파일이 끝내 안 나타나면 = 경로 오류 등 진짜
+    # 실패 → save_wait 뒤 종료. 저장 파일은 커지기만 하므로 이 루프는 반드시 끝난다:
+    #  파일 등장→크기 안정=완료, 또는 미등장→appear_deadline. 무한 대기 불가능.)
+    appear_deadline = time.time() + save_wait
     got = None
-    while time.time() < deadline:
+    prev_size = -1
+    while True:
         cand = _saved_file()
         if cand:
             try:
-                s1 = os.path.getsize(cand)
-                time.sleep(0.9)
-                s2 = os.path.getsize(cand)
+                size = os.path.getsize(cand)
             except OSError:
-                s1, s2 = 0, -1
-            if s1 > 0 and s1 == s2:     # 더 안 커지면 쓰기 끝
+                size = -1
+            if size > 0 and size == prev_size:   # 두 번 연속 같은 크기 = 쓰기 끝
                 got = cand
                 break
+            prev_size = size                     # 아직 커지는 중 → 계속 기다림(무기한)
+            time.sleep(0.9)
+            continue
+        if time.time() > appear_deadline:        # 파일이 끝내 안 나타남 = 진짜 실패
+            break
         time.sleep(0.5)
     if not got:
         try:

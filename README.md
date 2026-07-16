@@ -103,6 +103,7 @@ flowchart TD
 | **Self-healing** | Keeps working through class-name obfuscation/structure changes via structural paths/markers; when it truly breaks, an LLM re-locates just that part |
 | **3 automatic load methods** | `auto` (static) / `render` (JS-SPA) / `chrome` (anti-bot·login Save As) — decided and remembered per site |
 | **Anti-bot / login handling** | Reuses your real Chrome session (cookies, login). Auto-switches on block detection, 1 page, no retries |
+| **Free translation via your own browser** | Because it drives your *real* Chrome, turning on Chrome's built-in "always translate" for a language means foreign-language pages (RU/JA/ZH/AR news) are collected **already translated** into your language — no translation API or key. Structure is untouched, so self-healing is unaffected. ⚠ Translated text is sent to the browser's translation service (cookies are not) — use on public, non-sensitive pages only ([see Privacy](#privacy--data-sovereignty)) |
 | **Image fields** | Picks the representative image per record by structure → keeps **both the remote URL and an offline copy** |
 | **Accumulate · replay · audit** | CSV accumulation (4 save modes) · recipe (CSV) replay · `_runs.csv` audit log · bulk `replay` |
 | **Chain crawling** | Follows the link column of a list CSV → collects each detail page as a single record |
@@ -133,7 +134,7 @@ it runs the crawl once, so **your own run history and your own recipe are create
 
 - **Folder separation**: `recipes/shared/outbox` (masked recipes you're about to share) vs.
   `recipes/shared/inbox` (recipes you've received) — never mixed.
-- **Self-describing names**: shared files are named `site_field1_field2…` (e.g. `google_email_subject_email_body`)
+- **Self-describing names**: shared files are named `site_field1_field2…` (e.g. `webmail_subject_body`)
   — you know what it is without opening it. When sharing, `Enter = auto-generated name` or type your own.
 - **Import**: pick one from the inbox list → see the **site and fields (manifest)** → enter your URL →
   `Enter = apply the verified recipe as-is and run` / `type anything = start fresh from scratch`.
@@ -171,6 +172,12 @@ it runs the crawl once, so **your own run history and your own recipe are create
 - **No automatic push**: sharing is always *mask → human review → PR*. Your search terms never leak as-is.
 - **Minimized footprint**: blocked sites get 1 page and no automatic retries. Heavy analysis only ever runs
   against locally saved HTML.
+- **If you enable Chrome's built-in translation** (the free-translation trick above): the visible text of a
+  translated page is sent to the browser's built-in translation service (cookies are **not** sent; HTTPS
+  requests go over SSL). Consumer translation content may be used — anonymized — to improve that service,
+  unlike the opt-out enterprise cloud translation API. Since this tool loads pages with **your logged-in
+  session**, keep auto-translate to **public, non-sensitive pages only** — never pages that display your
+  account data.
 
 ---
 
@@ -225,7 +232,7 @@ Full CLI options, verified sites, and architecture are documented in the appendi
 **[`_internal/SRS.md`](_internal/SRS.md)** (Korean, canonical spec).
 
 ```bash
-python _internal/tests/run_tests.py     # full test suite (currently 254)
+python _internal/tests/run_tests.py     # full test suite (currently 253)
 ```
 
 ---

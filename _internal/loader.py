@@ -85,7 +85,15 @@ def smart_load(target, scroll=False, force_chrome=False, wait=0, force_render=Fa
         if cdom is not None and not block_reason(cdom):
             LAST_LOAD_METHOD = "chrome"
             return cdom
-        print("  · " + t("Save As 실패 → 일반 경로 확인(추가 Save As 는 안 함)."))
+        # save_as 를 '명시적으로' 고른 경우엔 auto 로 몰래 내려가지 않는다. save_as 가
+        # 실패할 사이트(로그인 필요·차단)는 auto 도 어차피 차단/빈 페이지만 받으므로
+        # 폴백이 무의미하고, auto 로 바뀌면 로그인 세션·번역 이점까지 사라진다. 게다가
+        # 저장은 이제 '될 때까지' 기다리므로(위 chrome_save_as_fetch) 여기 오는 건
+        # 진짜 예외뿐 → auto 로 대체하지 말고 명확히 알린 뒤 종료(메뉴로 복귀).
+        print("  · [" + t("에러") + "] " + t("Save As 로 페이지를 받지 못했습니다 — "
+              "save_as 를 고르셨으므로 auto 로 자동 전환하지 않습니다."))
+        print("    " + t("크롬 창을 맨 앞에 두고(가능하면 관리자 권한으로) 다시 시도하세요."))
+        sys.exit(2)
 
     dom = load_dom(target)
     LAST_LOAD_METHOD = "auto"
