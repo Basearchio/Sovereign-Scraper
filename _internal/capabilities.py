@@ -104,8 +104,12 @@ def render(items, mask: bool = False) -> str:
         got = [name for name, r in it["fields"] if r > 0.0]      # 실제 값이 있는 필드만
         cov = ", ".join(f"{name}:V" for name in got) or "—"
         lines.append(f"| {typ} | {it['load']} | {it['records']} | {cov} |")
-    lines += ["", f"_총 {len(items)}개 대상. 생성: capabilities.py"
-                  + (" --mask" if mask else "") + "_"]
+    lines += ["",
+              "> `f1·f2`처럼 이름이 일반적인 행 = **LLM 명명을 끈 상태**로 뽑은 결과. "
+              "이름 자동 부여만 생략됐을 뿐 추출은 성공(`:V`) — LLM 없이도 크롤링이 동작함을 보여줌.",
+              "",
+              f"_총 {len(items)}개 대상. 생성: capabilities.py"
+              + (" --mask" if mask else "") + "_"]
     return "\n".join(lines)
 
 

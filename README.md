@@ -165,6 +165,9 @@ it runs the crawl once, so **your own run history and your own recipe are create
 - **Local-first**: an isolated `.venv`; results and recipes stay on your machine. The LLM is **optional** and
   falls back to structural/heuristic matching when not connected (choose local LM Studio/Ollama, or an
   OpenAI-compatible cloud endpoint).
+- **Proof it runs LLM-free**: the auto-generated [capability matrix](_internal/docs/capabilities.md) marks
+  every field actually extracted with `:V`. Rows with generic names (`f1`, `f2` …) were pulled **with LLM
+  naming turned off** — only the automatic naming is skipped; the extraction itself still succeeds.
 - **No automatic push**: sharing is always *mask → human review → PR*. Your search terms never leak as-is.
 - **Minimized footprint**: blocked sites get 1 page and no automatic retries. Heavy analysis only ever runs
   against locally saved HTML.
