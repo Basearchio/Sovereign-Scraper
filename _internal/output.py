@@ -2,9 +2,11 @@
 """
 MODULE_NAME: output.py
 PURPOSE: 결과 CSV 저장 leaf — 4가지 저장 방식(append/history/overwrite/upsert) + 회차/crawled_at 부가 +
-         헤더 진화(옛 컬럼 보존) + 파일 잠금 대기(safe_io). cli(단발 크롤)와 chain(체인 크롤)이 '둘 다'
-         쓰므로 어느 진입점에도 두지 않고 공통 모듈로 둔다(chain 이 cli 갓-모듈을 통째로 끌어오던 결합 해소).
-DEPENDENCY: dedup(leaf, 중복키)·safe_io + 표준 csv. engine/cli/chain/llm 을 import 하지 않는다.
+         헤더 진화(옛 컬럼 보존) + 파일 잠금 대기(safe_io). 저장 방식 '결정 규칙'(resolve_save_mode)도
+         여기가 단일 출처다. cli(단발 크롤)와 chain(체인 크롤)이 '둘 다' 쓰므로 어느 진입점에도 두지
+         않고 공통 모듈로 둔다(chain 이 cli 갓-모듈을 통째로 끌어오던 결합 해소).
+DEPENDENCY: dedup(leaf, 중복키)·safe_io + 표준 csv. resolve_save_mode 만 core.schema/crawl_config 를
+         지연 import(레시피 meta·설정 기본값). engine/cli/chain/llm 을 import 하지 않는다.
 """
 from __future__ import annotations
 
@@ -12,6 +14,23 @@ import os
 
 import safe_io
 from dedup import _rec_key
+
+
+def resolve_save_mode(explicit_mode, recipe_path, no_dedup=False):
+    """저장 방식 결정의 '단일 규칙'(cli 단발·chain 체인 공용 — 중복 제거):
+      --mode 명시 > 레시피에 기록된 save_mode > (--no-dedup=history) > 설정 기본값(crawl_config).
+    레시피가 없거나 읽기 실패면 그 단계는 건너뛴다(기존 동작 보존)."""
+    recipe_mode = ""
+    if recipe_path and os.path.exists(recipe_path):
+        try:
+            from core.schema import Schema     # 지연 import: 저장 경로에서만 필요(모듈 그래프 경량 유지)
+            recipe_mode = Schema.read_recipe_meta(recipe_path).get("save_mode", "")
+        except Exception:
+            recipe_mode = ""
+    if explicit_mode or recipe_mode:
+        return explicit_mode or recipe_mode
+    import crawl_config
+    return "history" if no_dedup else crawl_config.default_save_mode()
 
 
 def save_csv(path, rows, fields, mode="append", url_field=None, batch=None, key_field=None):

@@ -4,7 +4,8 @@ MODULE_NAME: runlog.py
 PURPOSE: 실행 감사 로그(_runs.csv) 기록 + 계층 실행번호(site_no) 부여. 매 실행을 '녹화하듯'
          append 하고, 파일 전체를 다시 써 site_no 를 일관 부여한다(일반=정수, 체인=부모-자식 P-k).
          replay 목록 번호와 _runs.csv 의 site_no 가 항상 일치하도록 하는 단일 규칙.
-DEPENDENCY: 표준 라이브러리(csv/datetime/time) + paths(OUTPUT_DIR/RUNLOG_PATH). engine/DOM 무관.
+DEPENDENCY: 표준 라이브러리(csv/datetime/time) + paths(OUTPUT_DIR/RUNLOG_PATH) + safe_io.
+            record_run 의 안내 출력만 i18n(leaf) 지연 import. engine/DOM 무관.
 
 [검증된 주요 사이트 및 케이스]
 - 부모-자식 번호: incruit 목록(정수 6) → 그 목록 CSV 를 따라간 체인 = '6-1'. 부모 매칭은
@@ -107,6 +108,29 @@ def assign_run_numbers(rows):
                 chain_top[key] = next_int()
             r["site_no"] = str(chain_top[key])
     return rows
+
+
+def resolve_batch(batch_arg):
+    """이번 실행의 '회차' 결정(cli·chain 공용): 명시(--batch, 한 replay 세션이 공유)가 있으면 그 값,
+    없으면 _runs.csv 최대+1(next_batch)."""
+    return batch_arg if batch_arg is not None else next_batch()
+
+
+def record_run(target, status, load_method, parse_method, example, fields,
+               n_records, result_csv, recipe_csv, url_col="", batch=None, save_mode=""):
+    """append_runlog + 결과 안내/실패 경고 출력을 한곳으로(cli·chain 공용 — 중복 제거).
+    기록 실패가 크롤 결과를 죽이면 안 되므로 경고만 출력하고 삼킨다(기존 계약 유지)."""
+    from i18n import t     # 지연 import: 기록 시점에만 필요(leaf 그래프 경량 유지)
+    try:
+        append_runlog(target, status, load_method, parse_method, example, fields,
+                      n_records, result_csv, recipe_csv, url_col=url_col,
+                      batch=batch, save_mode=save_mode)
+        print("■ " + t("실행 기록: {p}  (status={s})", p=RUNLOG_PATH, s=status))
+    except PermissionError:
+        print("[" + t("경고") + "] " + t("실행 기록 실패: '{p}' 가 잠겨 있습니다.", p=RUNLOG_PATH))
+        print("  · " + t("엑셀/편집기에서 _runs.csv 를 '닫고' 다시 실행하세요(열려 있으면 기록 못 함)."))
+    except Exception as e:
+        print("[" + t("경고") + "] " + t("실행 기록 실패: {e}", e=e))
 
 
 def append_runlog(target, status, load_method, parse_method, example, fields,

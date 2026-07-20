@@ -4,8 +4,8 @@ MODULE_NAME: start.py
 PURPOSE: 사람이 쓰는 '메뉴 런처'. 플래그를 외울 필요 없이 번호만 고르면 기존 진입점(cli.py/replay.py)을
          그대로 실행한다. 속(로직)은 기존과 100% 동일 — 이 파일은 얇은 디스패처일 뿐이다.
          메뉴는 MENU 리스트라 항목 추가가 한 줄(라벨, 함수) → 별개 프로그램도 5·6…으로 쉽게 확장.
-DEPENDENCY: 표준 라이브러리만. 각 항목은 subprocess 로 기존 스크립트를 띄운다(격리 = replay 방식과 동일).
-            LLM 설정만 예외로 .env 를 직접 읽고/쓴다(설정 파일 편집이라 인프로세스가 자연스러움).
+DEPENDENCY: 표준 라이브러리 + envfile/crawl_config/i18n(leaf). 각 항목은 subprocess 로 기존 스크립트를
+            띄운다(격리 = replay 방식과 동일). LLM 설정만 예외로 .env 를 직접 읽고/쓴다(envfile 경유).
 
 사용:
   python start.py        # 메뉴 표시(대화형)
@@ -34,6 +34,9 @@ except Exception:
 import crawl_config   # 레시피 기본 저장/로드 방식(설정에서 읽고 여기서 바꿈)
 import i18n           # 다국어(한국어 소스 + 언어 오버레이). 미번역은 한국어로 폴백.
 from i18n import t
+# .env 읽기/부분갱신은 envfile leaf 단일 파서(4벌 복제 제거). 기존 이름(_read_env/_set_env)은
+# 테스트·내부 호출부가 쓰므로 별칭으로 유지.
+from envfile import read_env as _read_env, set_env as _set_env
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INTERNAL = os.path.join(HERE, "_internal")     # 내부 모듈/도구 폴더
@@ -245,33 +248,6 @@ _LLM_PRESETS = [
 
 
 AUTO_HEAL_KEY = "AUTO_HEAL"   # 심층 재학습(값싼 방법 실패 시 save_as+전체 HTML LLM) on/off
-
-
-def _read_env(path=ENV_PATH):
-    d = {}
-    try:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                d[k.strip()] = v.strip()
-    except FileNotFoundError:
-        pass
-    return d
-
-
-def _set_env(updates, path=ENV_PATH):
-    """.env 의 '일부 키'만 갱신하고 나머지 키는 보존한다(전체 덮어쓰기 금지 — 토글이 LLM 키를 날리는
-    사고 방지). 파일 없으면 생성."""
-    cur = _read_env(path)
-    for k, v in updates.items():
-        cur[k] = "" if v is None else str(v)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("# 설정 (start.py 가 생성/갱신). .env 는 .gitignore 됩니다 — 커밋되지 않음.\n")
-        for k, v in cur.items():
-            f.write(f"{k}={v}\n")
 
 
 def _write_env(base, model, key, path=ENV_PATH):

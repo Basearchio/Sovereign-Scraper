@@ -29,14 +29,15 @@ from engine import SelfHealingEngine, row_sig, load_dom
 from core.schema import Schema
 import cli
 # 경로 규칙은 leaf(paths), 감사로그는 leaf(runlog)에서 직접 — 나머지 실행 헬퍼는 cli(동료 컨트롤러).
-from paths import chain_recipe_path_for, chain_csv_path_for, chain_recipe_glob, RUNLOG_PATH
-from runlog import append_runlog, next_batch
-import crawl_config   # 레시피가 따르는 기본 저장 방식(명시·레시피값 없을 때 폴백)
+from paths import chain_recipe_path_for, chain_csv_path_for, chain_recipe_glob
+# append_runlog 는 record_run 이 감싸지만 테스트가 chain 재-export 를 고정하므로 유지.
+from runlog import append_runlog, resolve_batch, record_run  # noqa: F401
 from i18n import t     # 다국어: 사용자 출력 번역(미번역은 한국어 폴백)
 from cli import select_by_example
 from loader import load_or_die, _warn_if_spa   # DOM 획득은 loader.py leaf 에서 직접(cli 우회). v5.0 탈결합
 import loader   # 가변 상태(LAST_LOAD_METHOD/RENDER_REQUIRED)는 loader.<이름> 으로 실시간 참조
-from output import save_csv   # CSV 저장은 output.py leaf 에서 직접(cli 갓-모듈 우회). v5.0 탈결합
+# CSV 저장 + 저장방식 결정 규칙은 output.py leaf 에서 직접(cli 갓-모듈 우회, cli 와 규칙 공유).
+from output import save_csv, resolve_save_mode
 
 
 def _read_csv_rows(path):
@@ -477,16 +478,9 @@ def run_chain_crawl(target, args):
         sys.exit(3)
     valid = any(any(r.get(k) for k in fields) for r in out_rows)
 
-    # 저장 방식/회차 결정: --mode > 레시피 기록 > (--no-dedup=history) > append.
-    recipe_mode = ""
-    if os.path.exists(recipe_path):
-        try:
-            recipe_mode = Schema.read_recipe_meta(recipe_path).get("save_mode", "")
-        except Exception:
-            recipe_mode = ""
-    save_mode = args.mode or recipe_mode or ("history" if args.no_dedup
-                                             else crawl_config.default_save_mode())
-    batch = args.batch if args.batch is not None else next_batch()
+    # 저장 방식/회차 결정 — 규칙은 output.resolve_save_mode/runlog.resolve_batch 단일 출처(cli 와 공유).
+    save_mode = resolve_save_mode(args.mode, recipe_path, args.no_dedup)
+    batch = resolve_batch(args.batch)
 
     # 별도 상세 CSV 저장(레시피와 같은 코어로 '한 쌍'). 회차 포함.
     out_path = (args.csv if (args.csv and args.csv != "AUTO")
@@ -511,14 +505,8 @@ def run_chain_crawl(target, args):
         except Exception as e:
             print("[" + t("경고") + "] " + t("체인 레시피 저장 실패: {e}", e=e))
 
-    # ⑦ 실행 기록 — _runs.csv 에 append. target=목록CSV, url_col 기록 → 부모-자식 번호(P-k).
-    try:
-        append_runlog(target, "success" if valid else "fail",
-                      loader.LAST_LOAD_METHOD, parse_method, ex, fields,
-                      len(out_rows), out_path, recipe_path if valid else "",
-                      url_col=url_col, batch=batch, save_mode=save_mode)
-        print("■ " + t("실행 기록: {p}  (status={s})", p=RUNLOG_PATH, s=('success' if valid else 'fail')))
-    except PermissionError:
-        print("[" + t("경고") + "] " + t("실행 기록 실패: '{p}' 가 잠겨 있습니다(엑셀에서 닫고 재실행).", p=RUNLOG_PATH))
-    except Exception as e:
-        print("[" + t("경고") + "] " + t("실행 기록 실패: {e}", e=e))
+    # ⑦ 실행 기록 — _runs.csv append(잠금/실패 안내 포함). target=목록CSV, url_col 기록 → 부모-자식 번호(P-k).
+    record_run(target, "success" if valid else "fail",
+               loader.LAST_LOAD_METHOD, parse_method, ex, fields,
+               len(out_rows), out_path, recipe_path if valid else "",
+               url_col=url_col, batch=batch, save_mode=save_mode)

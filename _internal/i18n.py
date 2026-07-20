@@ -4,7 +4,7 @@ MODULE_NAME: i18n.py
 PURPOSE: 다국어(i18n) — 한국어를 '소스(기본값)'로 두고, 언어별 오버레이(한국어→번역)를 얹는다.
          t("크롤링") 은 현재 언어 번역이 있으면 그걸, 없으면 **한국어 원문 그대로** 돌려준다(폴백).
          → 문자열을 하나씩 번역해도 앱이 안 깨지고, 미번역은 자연히 한국어로 나온다("한국어 구성 후 언어 확장").
-DEPENDENCY: 표준 라이브러리(os/json)만. 최하위 leaf(누구나 import). engine/cli/start 무관.
+DEPENDENCY: 표준 라이브러리(os/json) + envfile(최하위 leaf, .env 단일 파서). engine/cli/start 무관.
 
 - 언어: 루트 `.env` 의 LANG(기본 ko). 번역표: `_internal/i18n/<lang>.json` = {"한국어원문": "번역", …}.
 - 쓰기는 start 설정 메뉴(_set_env), 읽기는 여기. set_lang() 으로 런타임 전환(캐시 갱신).
@@ -12,8 +12,9 @@ DEPENDENCY: 표준 라이브러리(os/json)만. 최하위 leaf(누구나 import)
 import json
 import os
 
+from envfile import read_env as _read_env_file   # .env 파싱은 envfile leaf 단일 파서(복제 제거)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ENV = os.path.join(os.path.dirname(_HERE), ".env")      # 루트/.env
 _LOCALES = os.path.join(_HERE, "i18n")                   # _internal/i18n/<lang>.json
 
 LANG_KEY = "LANG"
@@ -27,18 +28,7 @@ _table = {}         # 현재 언어 번역표(캐시)
 
 def _read_env_lang():
     """루트 .env 에서 LANG 값(소문자). 없으면 ''."""
-    try:
-        with open(_ENV, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                if k.strip() == LANG_KEY:
-                    return v.strip().lower()
-    except FileNotFoundError:
-        pass
-    return ""
+    return (_read_env_file().get(LANG_KEY) or "").strip().lower()
 
 
 def _load_table(lang):

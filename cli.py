@@ -108,7 +108,7 @@ set_structure_discoverer(_discover_impl)
 
 # 중복 제거 키(leaf, crawl_all/save_csv·autoheal 공유) + 자동 재학습·저널(autoheal). v5.0 분할:
 from dedup import _rec_key, _choose_url_field
-from output import save_csv   # CSV 저장 leaf(cli·chain 공유). v5.0 분할
+from output import save_csv, resolve_save_mode   # CSV 저장 + 저장방식 결정 규칙 leaf(cli·chain 공유)
 import loader   # DOM 획득(안티봇/렌더/차단) — 가변 상태(LAST_LOAD_METHOD 등) 보유. v5.0 분할
 from loader import load_or_die, _warn_if_spa, smart_load   # cli 자기 사용(체인은 loader 직접)
 from autoheal import (try_auto_heal, _auto_heal, _auto_heal_enabled, _ask_load_method,
@@ -124,8 +124,9 @@ import image_archive
 
 
 # 감사로그(_runs.csv)·계층 실행번호는 runlog.py(leaf)로 분리 — cli/chain/replay 가 재사용. Phase 4c:
-from runlog import (_is_chain_target, assign_run_numbers, append_runlog,
-                    next_batch, MODE_LABELS)
+# append_runlog 는 이제 record_run 이 감싸지만, replay·테스트가 cli 재-export 를 고정하므로 유지.
+from runlog import (_is_chain_target, assign_run_numbers, append_runlog,  # noqa: F401
+                    resolve_batch, record_run, MODE_LABELS)
 
 
 
@@ -449,6 +450,101 @@ def crawl_all(eng, dom, target, max_pages, scroll):
             break
         cur_url = nxt
     return all_rows, url_field
+
+
+def _validate_run(eng, rows, fields):
+    """추출 품질 가드 4단계(값싼 것부터): ①빈값 ②형태(레시피 example 대비) ③차단마커 ④극소수 LLM 확인.
+    자가치유가 차단/엉뚱한 페이지에 끌려가 망가진 결과로 '좋은 레시피'를 덮거나 CSV 를 더럽히지 않기 위한
+    관문 — 저장할 만하면 True. (판정 자체는 guards.py 단일 출처, 여기는 안내 출력을 붙인 오케스트레이션.)"""
+    valid = _run_is_valid(rows, fields)
+    # 채워졌더라도 형태가 레시피와 어긋나면(잘못된 치유) 저장 스킵 — 다음 단계(자동 재학습)의 트리거.
+    if valid:
+        sem_ok, sem_bad = _semantic_ok(rows, eng.schema)
+        if not sem_ok:
+            valid = False
+            print("\n[" + t("가드") + "] " + t("값은 채워졌지만 '형태'가 레시피와 다릅니다(잘못된 치유 의심):"))
+            for _n, _w, _r in sem_bad:
+                print("    · " + t("필드 '{n}': {want} 형태 기대인데 {real} 만 일치", n=_n, want=_w, real=_r))
+    # 차단/인증 페이지 결정적 감지(값싼) — 값이 验证/verify/robot 등으로 도배면 실제 데이터 아님.
+    if valid and _looks_like_block(rows, fields):
+        valid = False
+        print("\n[" + t("가드") + "] " + t("추출 값이 차단/인증 페이지 특유의 텍스트(验证/verify/robot 등)입니다 → 저장 스킵."))
+    # 최후 백스톱: 결과가 극소수(≤2)면 그때만 LLM 에 '실제 목록 vs 차단/오류'를 물어 확인.
+    if valid and len(rows) <= 2 and not _llm_confirms_real(rows, fields):
+        valid = False
+        print("\n[" + t("가드") + "] " + t("결과가 너무 적고 LLM 확인 결과 '실제 목록이 아님(차단/오류)'으로 판정 → 저장 스킵."))
+    return valid
+
+
+def _persist_success(eng, target, args, rows, fields, url_field, save_mode, batch,
+                     recipe_loaded, healed_via_saveas, pages, recipe_csv,
+                     new_html, old_html):
+    """가드를 통과한 성공 결과의 저장 파이프라인(main 에서 분리 — 동작 동일):
+    ①' 이미지 아카이빙 → 경로 상대화 → ① 결과 CSV → ② 레시피 CSV → ③ 성공 HTML(old) 승격.
+    반환: (result_csv, fields) — 이미지 필드가 있으면 fields 에 '<name>_file' 열이 삽입돼 돌아온다."""
+    # ①' 이미지 아카이빙 — 이미지 필드(attr='src')가 있으면 그 원격 URL(또는 save_as 로컬 경로)을
+    #     회차 폴더로 내려받아 오프라인 사본을 만들고 '<name>_file' 열을 붙인다. 크롬 save_as 는
+    #     URL 을 버리지만 우리가 직접 받으면 URL↔파일이 정확히 짝지어지고 확장자도 보정된다.
+    #     폴더 규칙: history=회차 폴더, append/upsert=dedup 누적, overwrite=비우고 새로.
+    img_fields = [(n, f"{n}_file") for n, fs in eng.schema.fields.items()
+                  if fs.get("attr") == "src"]
+    if img_fields and not args.no_images and rows:
+        out_dir = image_dir_for(target, save_mode, batch)
+        image_archive.prepare_dir(out_dir, overwrite=(save_mode == "overwrite"))
+        print("\n■ " + t("이미지 아카이빙 → {p}", p=out_dir))
+        ref = target if str(target).startswith(("http://", "https://")) else ""
+        sv, ru, fl = image_archive.archive_images(rows, img_fields, out_dir,
+                                                  log=print, referer=ref)
+        fields = [c for n in fields for c in ((n, f"{n}_file")
+                  if (n, f"{n}_file") in img_fields else (n,))]  # url 뒤에 _file 삽입
+        print("  · " + t("저장 {sv} · 재사용 {ru} · 실패 {fl}  (오프라인 경로를 '<필드>_file' 열에 기록)",
+                        sv=sv, ru=ru, fl=fl))
+    # 이식성: 이미지 관련 '로컬 절대경로'를 프로젝트 루트 기준 상대경로로(폴더 이동해도 CSV 가 안 깨짐).
+    #         원격 URL(http)은 그대로 둔다.
+    if img_fields:
+        for row in rows:
+            for uf, ff in img_fields:
+                for col in (uf, ff):
+                    if row.get(col):
+                        row[col] = rel_to_root(row[col])
+
+    # ① 결과 CSV — 사이트명 기반 파일에 저장(재실행 시 append). 기본 자동 저장.
+    result_csv = args.csv if (args.csv and args.csv != "AUTO") else csv_path_for(target)
+    added, updated = save_csv(result_csv, rows, fields, mode=save_mode,
+                              url_field=url_field, batch=batch)
+    upd = t(", 갱신 {u}건", u=updated) if updated else ""
+    print("■ " + t("결과 CSV: {csv}  [{label}] 회차={batch} (추가 {added}건{upd})",
+                   csv=result_csv, label=t(MODE_LABELS.get(save_mode, save_mode)),
+                   batch=batch, added=added, upd=upd))
+
+    # ② 레시피 CSV — '타격 위치(랜덤클래스 무관 구조경로)' + 로드방식 자동 저장/갱신.
+    #    학습 때 브라우저 렌더링이 필요했으면(RENDER_REQUIRED) load_method=render 로
+    #    저장해, 재현 때도 정적이 아니라 렌더링으로 로드하게 한다(YouTube 등).
+    if healed_via_saveas:
+        # 재학습은 save_as 로 뚫었다 → 로드 방식을 고정(대화형이면 save_as vs auto 질문).
+        save_lm = _ask_load_method(args, default="chrome")
+    else:
+        save_lm = ("render" if (loader.RENDER_REQUIRED and loader.LAST_LOAD_METHOD == "auto")
+                   else loader.LAST_LOAD_METHOD)
+    try:
+        eng.schema.save_csv_recipe(recipe_csv, url=target,
+                                   load_method=save_lm, wait=args.wait, pages=pages,
+                                   extra_meta={"save_mode": save_mode})
+        verb = t("갱신") if recipe_loaded else t("저장")
+        print("■ " + t("레시피 CSV {verb}: {csv}  (다음 실행 시 자동 재현, 로드방식={lm}, 대기={w}s, 페이지={p})",
+                       verb=verb, csv=recipe_csv, lm=save_lm, w=args.wait, p=pages))
+    except Exception as e:
+        print("[" + t("경고") + "] " + t("레시피 CSV 저장 실패: {e}", e=e))
+
+    # ③ 성공한 HTML(new)을 old(마지막 성공본)로 승격 → 다음에 실패하면 비교 기준.
+    if os.path.exists(new_html):
+        try:
+            import shutil
+            shutil.copy2(new_html, old_html)
+            print("■ " + t("성공 HTML 보관(old): {p}", p=old_html))
+        except Exception as e:
+            print("[" + t("경고") + "] " + t("old HTML 보관 실패: {e}", e=e))
+    return result_csv, fields
 
 
 # ============================ CSV 체인 크롤링 =================================
@@ -795,36 +891,12 @@ def main():
             line = " | ".join(f"{k}={r.get(k)}" for k in fields)
             print(f"{i:>3}. {line}")
 
-    # 추출 품질 검사 — 자가치유가 차단/엉뚱한 페이지에 끌려가 망가지면 전부 None 이 된다.
-    # 이런 비정상 결과로 '좋은 레시피'를 덮어쓰거나 결과 CSV를 더럽히지 않도록 가드.
-    valid = _run_is_valid(rows, fields)
-    # 채워졌더라도 형태가 레시피와 어긋나면(잘못된 치유) 저장 스킵 — 다음 단계(자동 재학습)의 트리거.
-    if valid:
-        sem_ok, sem_bad = _semantic_ok(rows, eng.schema)
-        if not sem_ok:
-            valid = False
-            print("\n[" + t("가드") + "] " + t("값은 채워졌지만 '형태'가 레시피와 다릅니다(잘못된 치유 의심):"))
-            for _n, _w, _r in sem_bad:
-                print("    · " + t("필드 '{n}': {want} 형태 기대인데 {real} 만 일치", n=_n, want=_w, real=_r))
-    # 차단/인증 페이지 결정적 감지(값싼) — 값이 验证/verify/robot 등으로 도배면 실제 데이터 아님.
-    if valid and _looks_like_block(rows, fields):
-        valid = False
-        print("\n[" + t("가드") + "] " + t("추출 값이 차단/인증 페이지 특유의 텍스트(验证/verify/robot 등)입니다 → 저장 스킵."))
-    # 최후 백스톱: 결과가 극소수(≤2)면 그때만 LLM 에 '실제 목록 vs 차단/오류'를 물어 확인.
-    if valid and len(rows) <= 2 and not _llm_confirms_real(rows, fields):
-        valid = False
-        print("\n[" + t("가드") + "] " + t("결과가 너무 적고 LLM 확인 결과 '실제 목록이 아님(차단/오류)'으로 판정 → 저장 스킵."))
+    # 추출 품질 검사 — 가드 4단계(_validate_run). 비정상 결과로 '좋은 레시피'를 덮지 않는다.
+    valid = _validate_run(eng, rows, fields)
     recipe_csv = recipe_path_for(target)
-    # 저장 방식(회차 포함) 결정: --mode > 레시피에 기록된 방식 > (--no-dedup=history) > append.
-    recipe_mode = ""
-    if os.path.exists(recipe_csv):
-        try:
-            recipe_mode = Schema.read_recipe_meta(recipe_csv).get("save_mode", "")
-        except Exception:
-            recipe_mode = ""
-    save_mode = args.mode or recipe_mode or ("history" if args.no_dedup
-                                             else crawl_config.default_save_mode())
-    batch = args.batch if args.batch is not None else next_batch()
+    # 저장 방식/회차 결정 — 규칙은 output.resolve_save_mode/runlog.resolve_batch 단일 출처(chain 과 공유).
+    save_mode = resolve_save_mode(args.mode, recipe_csv, args.no_dedup)
+    batch = resolve_batch(args.batch)
     # old(마지막 성공)/new(이번 시도) HTML 관리 — Save As 로 받은 파일이 있을 때만.
     new_html = saved_html_path_for(target)
     old_html = saved_html_old_path_for(target)
@@ -850,68 +922,10 @@ def main():
             print("      " + t("new(실패): {p}", p=new_html))
         result_csv = None
     else:
-        # ①' 이미지 아카이빙 — 이미지 필드(attr='src')가 있으면 그 원격 URL(또는 save_as 로컬 경로)을
-        #     회차 폴더로 내려받아 오프라인 사본을 만들고 '<name>_file' 열을 붙인다. 크롬 save_as 는
-        #     URL 을 버리지만 우리가 직접 받으면 URL↔파일이 정확히 짝지어지고 확장자도 보정된다.
-        #     폴더 규칙: history=회차 폴더, append/upsert=dedup 누적, overwrite=비우고 새로.
-        img_fields = [(n, f"{n}_file") for n, fs in eng.schema.fields.items()
-                      if fs.get("attr") == "src"]
-        if img_fields and not args.no_images and rows:
-            out_dir = image_dir_for(target, save_mode, batch)
-            image_archive.prepare_dir(out_dir, overwrite=(save_mode == "overwrite"))
-            print("\n■ " + t("이미지 아카이빙 → {p}", p=out_dir))
-            ref = target if str(target).startswith(("http://", "https://")) else ""
-            sv, ru, fl = image_archive.archive_images(rows, img_fields, out_dir,
-                                                      log=print, referer=ref)
-            fields = [c for n in fields for c in ((n, f"{n}_file")
-                      if (n, f"{n}_file") in img_fields else (n,))]  # url 뒤에 _file 삽입
-            print("  · " + t("저장 {sv} · 재사용 {ru} · 실패 {fl}  (오프라인 경로를 '<필드>_file' 열에 기록)",
-                            sv=sv, ru=ru, fl=fl))
-        # 이식성: 이미지 관련 '로컬 절대경로'를 프로젝트 루트 기준 상대경로로(폴더 이동해도 CSV 가 안 깨짐).
-        #         원격 URL(http)은 그대로 둔다.
-        if img_fields:
-            for row in rows:
-                for uf, ff in img_fields:
-                    for col in (uf, ff):
-                        if row.get(col):
-                            row[col] = rel_to_root(row[col])
-
-        # ① 결과 CSV — 사이트명 기반 파일에 저장(재실행 시 append). 기본 자동 저장.
-        result_csv = args.csv if (args.csv and args.csv != "AUTO") else csv_path_for(target)
-        added, updated = save_csv(result_csv, rows, fields, mode=save_mode,
-                                  url_field=url_field, batch=batch)
-        upd = t(", 갱신 {u}건", u=updated) if updated else ""
-        print("■ " + t("결과 CSV: {csv}  [{label}] 회차={batch} (추가 {added}건{upd})",
-                       csv=result_csv, label=t(MODE_LABELS.get(save_mode, save_mode)),
-                       batch=batch, added=added, upd=upd))
-
-        # ② 레시피 CSV — '타격 위치(랜덤클래스 무관 구조경로)' + 로드방식 자동 저장/갱신.
-        #    학습 때 브라우저 렌더링이 필요했으면(RENDER_REQUIRED) load_method=render 로
-        #    저장해, 재현 때도 정적이 아니라 렌더링으로 로드하게 한다(YouTube 등).
-        if healed_via_saveas:
-            # 재학습은 save_as 로 뚫었다 → 로드 방식을 고정(대화형이면 save_as vs auto 질문).
-            save_lm = _ask_load_method(args, default="chrome")
-        else:
-            save_lm = ("render" if (loader.RENDER_REQUIRED and loader.LAST_LOAD_METHOD == "auto")
-                       else loader.LAST_LOAD_METHOD)
-        try:
-            eng.schema.save_csv_recipe(recipe_csv, url=target,
-                                       load_method=save_lm, wait=args.wait, pages=pages,
-                                       extra_meta={"save_mode": save_mode})
-            verb = t("갱신") if recipe_loaded else t("저장")
-            print("■ " + t("레시피 CSV {verb}: {csv}  (다음 실행 시 자동 재현, 로드방식={lm}, 대기={w}s, 페이지={p})",
-                           verb=verb, csv=recipe_csv, lm=save_lm, w=args.wait, p=pages))
-        except Exception as e:
-            print("[" + t("경고") + "] " + t("레시피 CSV 저장 실패: {e}", e=e))
-
-        # ③ 성공한 HTML(new)을 old(마지막 성공본)로 승격 → 다음에 실패하면 비교 기준.
-        if os.path.exists(new_html):
-            try:
-                import shutil
-                shutil.copy2(new_html, old_html)
-                print("■ " + t("성공 HTML 보관(old): {p}", p=old_html))
-            except Exception as e:
-                print("[" + t("경고") + "] " + t("old HTML 보관 실패: {e}", e=e))
+        # 성공 저장 파이프라인(이미지 아카이빙→결과 CSV→레시피 CSV→old 승격)은 _persist_success 로 분리.
+        result_csv, fields = _persist_success(
+            eng, target, args, rows, fields, url_field, save_mode, batch,
+            recipe_loaded, healed_via_saveas, pages, recipe_csv, new_html, old_html)
 
     # (옵션) 엑셀 레시피도 --recipe 로 명시하면 함께 저장
     if args.recipe:
@@ -921,18 +935,11 @@ def main():
         except Exception as e:
             print("[" + t("경고") + "] " + t("엑셀 레시피 저장 실패: {e}", e=e))
 
-    # ③ 실행 기록 — 이번 실행을 '녹화하듯' _runs.csv 에 append (성공/실패 포함).
-    try:
-        append_runlog(target, "success" if valid else "fail",
-                      loader.LAST_LOAD_METHOD, parse_method, example_input,
-                      fields, len(rows), rel_to_root(result_csv), rel_to_root(recipe_csv),
-                      batch=batch, save_mode=save_mode)
-        print("■ " + t("실행 기록: {p}  (status={s})", p=RUNLOG_PATH, s=('success' if valid else 'fail')))
-    except PermissionError:
-        print("[" + t("경고") + "] " + t("실행 기록 실패: '{p}' 가 잠겨 있습니다.", p=RUNLOG_PATH))
-        print("  · " + t("엑셀/편집기에서 _runs.csv 를 '닫고' 다시 실행하세요(열려 있으면 기록 못 함)."))
-    except Exception as e:
-        print("[" + t("경고") + "] " + t("실행 기록 실패: {e}", e=e))
+    # ③ 실행 기록 — 이번 실행을 '녹화하듯' _runs.csv 에 append (성공/실패 포함, 잠금/실패 안내 포함).
+    record_run(target, "success" if valid else "fail",
+               loader.LAST_LOAD_METHOD, parse_method, example_input,
+               fields, len(rows), rel_to_root(result_csv), rel_to_root(recipe_csv),
+               batch=batch, save_mode=save_mode)
 
 
 if __name__ == "__main__":
