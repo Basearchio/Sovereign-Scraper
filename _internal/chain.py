@@ -29,8 +29,7 @@ from engine import SelfHealingEngine, row_sig, load_dom
 from core.schema import Schema
 import cli
 # 경로 규칙은 leaf(paths), 감사로그는 leaf(runlog)에서 직접 — 나머지 실행 헬퍼는 cli(동료 컨트롤러).
-from paths import (chain_recipe_path_for, chain_csv_path_for, chain_recipe_glob,
-                   OUTPUT_DIR, RECIPE_DIR, RUNLOG_PATH)
+from paths import chain_recipe_path_for, chain_csv_path_for, chain_recipe_glob, RUNLOG_PATH
 from runlog import append_runlog, next_batch
 import crawl_config   # 레시피가 따르는 기본 저장 방식(명시·레시피값 없을 때 폴백)
 from i18n import t     # 다국어: 사용자 출력 번역(미번역은 한국어 폴백)

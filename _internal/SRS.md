@@ -939,7 +939,7 @@ requests · lxml · playwright · pywin32 · openpyxl   (외부 라이브러리)
 | `crawlers/base.py` | 공용 UA/헤더 + 안티봇 차단 감지(`block_reason`) |
 | `crawlers/static.py` | 정적/SSR fetch(requests>urllib) |
 | `crawlers/dynamic.py` | Playwright 렌더/무한스크롤/느린 SPA |
-| `crawlers/chrome.py` | '진짜 크롬' 수집(CDP attach / Save As 자동, pywin32) |
+| `crawlers/chrome.py` | '진짜 크롬' 수집(Save As 자동, pywin32). CDP attach 경로는 Chrome 136+ 차단으로 제거(운영 교훈 #2) |
 | `crawlers/picker.py` | (v6.4) 시각적 요소 피커 + 읽기모드 + 구조 반복 필드 자동 탐지(§FR-37) |
 | `core/schema.py` | 데이터 계약(`Schema`/`FieldSchema`) + 레시피 직렬화(순수 데이터) |
 | `heal_knowledge.py` | (v5.0) 실패 진단 저널 leaf(record/hints_for/all_hints/resolve). stdlib+paths+safe_io만 |

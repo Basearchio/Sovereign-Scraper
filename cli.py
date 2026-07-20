@@ -77,9 +77,9 @@ except Exception:
 
 import re
 
-from engine import (SelfHealingEngine, Schema, load_dom, find_repeating_rows,
+from engine import (SelfHealingEngine, Schema, find_repeating_rows,
                     enumerate_fields, field_preview, find_section_links,
-                    row_sig, set_relocator, set_structure_discoverer)
+                    set_relocator, set_structure_discoverer)
 # A 유형(URL 기반) 페이지네이션은 pagination.py leaf 에서(engine 클래스와 형제). v5.0 탈결합:
 from pagination import find_next_url, learn_page_param, apply_page_param
 # 예시 기반 위치탐색은 locators.py 에서(engine 과 형제 계층 — 서로 모름). v5.0 탈결합:
@@ -106,18 +106,17 @@ set_relocator(_relocate_impl)
 # 자동 재학습(최후 폴백): save_as 로 받은 로컬 HTML 을 LLM 으로 구조 파악하는 구현을 주입.
 set_structure_discoverer(_discover_impl)
 
-import safe_io   # 엑셀 등 파일 잠금 시 풀릴 때까지 대기 후 저장(구멍 방지)
 # 중복 제거 키(leaf, crawl_all/save_csv·autoheal 공유) + 자동 재학습·저널(autoheal). v5.0 분할:
 from dedup import _rec_key, _choose_url_field
 from output import save_csv   # CSV 저장 leaf(cli·chain 공유). v5.0 분할
 import loader   # DOM 획득(안티봇/렌더/차단) — 가변 상태(LAST_LOAD_METHOD 등) 보유. v5.0 분할
 from loader import load_or_die, _warn_if_spa, smart_load   # cli 자기 사용(체인은 loader 직접)
 from autoheal import (try_auto_heal, _auto_heal, _auto_heal_enabled, _ask_load_method,
-                      _record_heal_case, _heal_missing_at_learning)
+                      _heal_missing_at_learning)
 
 # 파일 경로 규칙은 paths.py(leaf)로 분리 — cli/chain 이 재사용(engine 무관). Phase 4b:
-from paths import (HERE, CACHE_DIR, OUTPUT_DIR, RUNLOG_PATH,
-                   _site_key, cache_path_for, csv_path_for,
+from paths import (OUTPUT_DIR, RUNLOG_PATH,
+                   cache_path_for, csv_path_for,
                    saved_html_path_for, saved_html_old_path_for,
                    recipe_path_for, chain_recipe_path_for, image_dir_for,
                    rel_to_root)
@@ -125,7 +124,7 @@ import image_archive
 
 
 # 감사로그(_runs.csv)·계층 실행번호는 runlog.py(leaf)로 분리 — cli/chain/replay 가 재사용. Phase 4c:
-from runlog import (_is_chain_target, RUNLOG_HEADER, assign_run_numbers, append_runlog,
+from runlog import (_is_chain_target, assign_run_numbers, append_runlog,
                     next_batch, MODE_LABELS)
 
 
@@ -391,8 +390,8 @@ def _next_page_url(dom, cur_url, pattern):
 # guards.py 로 이관(상단에서 import). '잘못된 성공으로 좋은 레시피를 덮지 않는다'는 계약의 단일 출처.
 
 
-# 자동 재학습(try_auto_heal/_auto_heal/_record_heal_case/_heal_missing_at_learning/
-# _auto_heal_enabled/_ask_load_method)은 autoheal.py 로 이관(상단에서 import).
+# 자동 재학습(try_auto_heal/_auto_heal/_heal_missing_at_learning/_auto_heal_enabled/
+# _ask_load_method)은 autoheal.py 로 이관(상단에서 import — _record_heal_case 는 autoheal 내부용).
 
 
 def crawl_all(eng, dom, target, max_pages, scroll):

@@ -24,7 +24,7 @@ def test_paths_surface():
     for n in ("cache_path_for", "csv_path_for", "recipe_path_for",
               "chain_recipe_path_for", "chain_csv_path_for", "chain_recipe_glob",
               "saved_html_path_for", "saved_html_old_path_for",
-              "_site_key", "_site_label"):
+              "_site_label"):
         assert callable(getattr(paths, n, None)), f"paths.{n} 없음"
     for n in ("HERE", "CACHE_DIR", "OUTPUT_DIR", "RECIPE_DIR", "RUNLOG_PATH"):
         assert isinstance(getattr(paths, n, None), str), f"paths.{n} 없음"
@@ -120,7 +120,7 @@ def test_chain_uses_paths_for_path_symbols():
     import chain
     import paths
     assert chain.chain_recipe_path_for is paths.chain_recipe_path_for
-    assert chain.OUTPUT_DIR is paths.OUTPUT_DIR
+    assert chain.chain_csv_path_for is paths.chain_csv_path_for
 
 
 def test_rel_to_root_and_abs_roundtrip():

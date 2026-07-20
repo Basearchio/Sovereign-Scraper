@@ -3,14 +3,14 @@
 MODULE_NAME: crawlers/chrome.py
 PURPOSE: '진짜 크롬' 수집 전략 — 정적/헤드리스가 안티봇(Akamai/Cloudflare/PerimeterX/DataDome)에
          막힐 때, 사용자의 실제 Chrome 세션(로그인/쿠키)으로 페이지를 받는 최후 경로.
-         두 방식: (1) profile 디버그 attach(CDP), (2) Save As 완전자동(pywin32 키입력).
-DEPENDENCY: lxml(필수), Chrome 설치, i18n(leaf, 로그 문구 번역). profile=Playwright(CDP),
-            save_as=pywin32(win32com/win32gui/win32clipboard). 미설치/실패 시 모두 None → 호출부(cli)가 폴백/안내.
+         방식: Save As 완전자동(pywin32 키입력). 과거의 profile 디버그 attach(CDP) 경로는
+         Chrome 136+ 의 '기본 프로필 디버그 차단'으로 불가능해져 제거(SRS 운영 교훈 #2).
+DEPENDENCY: lxml(필수), Chrome 설치, i18n(leaf, 로그 문구 번역),
+            pywin32(win32com/win32gui/win32clipboard). 미설치/실패 시 None → 호출부가 폴백/안내.
 
 [검증된 주요 사이트 및 케이스]
 - 쿠팡 등 Akamai/Cloudflare 계열: save_as(Ctrl+S) 경로로 내 세션 HTML 확보(디버그 포트 불필요 →
   Chrome 136+ 의 '기본 프로필 디버그 차단'과 무관).
-- profile_fetch: 디버그 포트 attach-first(깜빡임 없이 재사용), 없으면 내 프로필 디버그 실행.
 
 [테스트/운영 교훈]
 - 우회 트릭이 아니라 '평소 브라우저로 다른이름저장' 자동화. 내가 띄운 크롬은 절대 강제종료 안 함.
@@ -43,179 +43,6 @@ def _find_chrome():
         if os.path.exists(p):
             return p
     return None
-
-
-def _port_open(port: int, host: str = "127.0.0.1") -> bool:
-    import socket
-    try:
-        with socket.create_connection((host, port), timeout=0.5):
-            return True
-    except OSError:
-        return False
-
-
-def _scrape_open_browser(endpoint, url, wait_ms, scroll, own_tab, log, scroll_seconds=15.0):
-    """이미 떠 있는 CDP 엔드포인트(=실제 크롬)에 붙어 url 내용을 받아 HTML 문자열 반환.
-
-    own_tab=True 면 새 탭을 열어 받고 닫는다(사용자 기존 탭 안 건드림 → attach 모드).
-    own_tab=False 면 우리가 띄운 전용 크롬이라 그 탭을 그대로 쓴다.
-    scroll_seconds: 무한스크롤 시 최대 스크롤 시간(초). 높이 정체 시 조기 종료(dynamic.py 와 동일 정책).
-    """
-    from playwright.sync_api import sync_playwright
-    import time
-    with sync_playwright() as p:
-        browser = p.chromium.connect_over_cdp(endpoint)
-        ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-        page = None
-        if own_tab:
-            page = ctx.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=45000)
-        else:
-            base = url.split("?")[0]
-            for _ in range(40):     # 우리가 띄운 크롬이 연 탭을 찾는다
-                pages = [pg for c in browser.contexts for pg in c.pages]
-                page = next((pg for pg in pages if base in pg.url), None) \
-                    or (pages[0] if pages else None)
-                if page and page.url not in ("about:blank", ""):
-                    break
-                time.sleep(0.25)
-            if page is None:
-                page = ctx.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=45000)
-        try:
-            page.wait_for_load_state("networkidle", timeout=wait_ms)
-        except Exception:
-            pass
-        page.wait_for_timeout(wait_ms)   # 안티봇 JS·콘텐츠 안정화 대기
-        if scroll:
-            prev_h = -1
-            deadline = time.monotonic() + scroll_seconds
-            while time.monotonic() < deadline:
-                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                page.wait_for_timeout(800)
-                h = page.evaluate("document.body.scrollHeight")
-                if h == prev_h:
-                    break
-                prev_h = h
-        content = page.content()
-        if own_tab:
-            try:
-                page.close()     # attach 모드: 우리가 연 탭만 닫고 사용자 크롬은 유지
-            except Exception:
-                pass
-        browser.close()         # connect_over_cdp 의 close 는 '연결 해제'(크롬 안 죽임)
-    return content
-
-
-def _default_chrome_user_data():
-    """사용자의 진짜 Chrome 프로필(User Data) 디렉터리. 없으면 None."""
-    p = os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data")
-    return p if os.path.isdir(p) else None
-
-
-def _kill_chrome(log=print):
-    """남아 있는(백그라운드 포함) chrome.exe 를 모두 종료. 프로필 잠금 해제용."""
-    import subprocess
-    try:
-        subprocess.run(["taskkill", "/F", "/IM", "chrome.exe", "/T"],
-                       capture_output=True)
-        log("  · " + t("백그라운드 크롬 정리(taskkill)"))
-    except Exception as e:
-        log("  · " + t("크롬 정리 실패: {e}", e=e))
-
-
-def chrome_profile_fetch(url: str, port: int = 9222, save_path: str = None,
-                         wait_ms: int = 6000, scroll: bool = False,
-                         scroll_seconds: float = 15.0, log=print,
-                         allow_kill: bool = True):
-    """[내 크롬 전용] 사용자의 '진짜 Chrome 프로필'로만 렌더된 DOM 을 받는다.
-
-    별도/전용 프로필은 절대 만들지 않는다. 동작:
-      ① attach : 디버그 포트가 이미 열려 있으면(이전 실행이 띄워둠) 거기 붙어 받는다.
-      ② 내 프로필 디버그 자동 실행 : 크롬이 완전히 꺼져 있으면 내 실제 프로필을 디버그로
-         실행해 받고, 그 크롬은 닫지 않고 둔다(다음엔 ①로 재사용 → 깜빡임 없음).
-      · 크롬이 백그라운드로 남아 ②가 위임돼 막히면, allow_kill 일 때 그 잔류 크롬만
-        정리하고 한 번 재시도한다. (사용자가 이미 닫은 크롬의 백그라운드 잔재 정리)
-
-    우회 트릭이 아니라, 평소 브라우저로 '다른 이름으로 저장' 하는 동작의 자동화일 뿐.
-    save_path 주면 HTML 저장. 실패 시 None. (내가 띄운 크롬은 절대 강제 종료 안 함)
-    """
-    try:
-        from playwright.sync_api import sync_playwright  # noqa: F401
-    except ImportError:
-        log("  · [" + t("크롬오류") + "] " + t("Playwright 미설치 (pip install playwright)"))
-        return None
-
-    import subprocess, time
-    endpoint = f"http://127.0.0.1:{port}"
-    chrome = _find_chrome()
-    real = _default_chrome_user_data()
-
-    def _launch_real():
-        """내 실제 프로필을 디버그로 실행. '디버그 포트가 열리는지'로만 성공 판정.
-
-        주의: 크롬은 켜질 때 런처 프로세스가 곧장 끝나고 브라우저는 별도 프로세스로
-        돈다. 그러니 프로세스 종료(poll)를 실패로 보면 안 되고, 오직 포트가 열렸는지만
-        본다. 포트가 끝까지 안 열리면 = (디버그 없이) 기존 크롬에 위임된 것.
-        """
-        subprocess.Popen([
-            chrome, f"--remote-debugging-port={port}",
-            f"--user-data-dir={real}",
-            "--no-first-run", "--no-default-browser-check", url,
-        ])
-        deadline = time.time() + 15
-        while time.time() < deadline and not _port_open(port):
-            time.sleep(0.3)
-        return _port_open(port)
-
-    content = None
-    try:
-        # ① attach-first: 이미 열린 내 디버그 크롬에 연결
-        if _port_open(port):
-            log("  · " + t("디버그 크롬 감지(:{port}) → 내 크롬 세션에 연결(attach)", port=port))
-            content = _scrape_open_browser(endpoint, url, wait_ms, scroll,
-                                           own_tab=True, log=log,
-                                           scroll_seconds=scroll_seconds)
-        elif not chrome:
-            log("  · [" + t("크롬오류") + "] " + t("chrome.exe 를 찾지 못함"))
-            return None
-        elif not real:
-            log("  · [" + t("크롬오류") + "] " + t("내 Chrome 프로필(User Data)을 찾지 못함"))
-            return None
-        else:
-            # ② 내 프로필을 디버그로 실행 → 포트 열리면 그 즉시 추출
-            log("  · " + t("내 크롬(실제 프로필)을 디버그로 실행(:{port})...", port=port))
-            ok = _launch_real()
-            if not ok and allow_kill:
-                # 포트가 끝내 안 열림 = (디버그 없이) 기존 크롬에 위임된 것 → 정리 후 재시도
-                log("  · " + t("디버그 포트 안 열림(기존 크롬에 위임 추정) → 잔류 크롬 정리 후 재시도"))
-                _kill_chrome(log)
-                time.sleep(3)
-                ok = _launch_real()
-            if not ok:
-                log("  · [" + t("크롬오류") + "] " + t("내 프로필 디버그 실행 실패."))
-                log("    " + t("크롬을 '완전히' 종료(작업표시줄/백그라운드 앱 포함) 후 다시 실행하세요."))
-                return None
-            log("  · " + t("내 크롬 디버그 실행됨 → HTML 추출 (이 크롬은 닫지 않고 둠)"))
-            content = _scrape_open_browser(endpoint, url, wait_ms, scroll,
-                                           own_tab=False, log=log,
-                                           scroll_seconds=scroll_seconds)
-    except Exception as e:
-        log("  · [" + t("크롬오류") + f"] {type(e).__name__}: {e}")
-        content = None
-    # 주의: 내가 띄운 크롬은 절대 terminate 하지 않는다(= 내 크롬, 살려둠).
-
-    if not content:
-        return None
-    dom = lxml_html.fromstring(content)
-    if save_path:                 # 저장 실패가 어렵게 받은 DOM 을 날리면 안 됨 → 격리
-        try:
-            os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
-            with open(save_path, "w", encoding="utf-8") as f:
-                f.write(content)
-        except Exception as e:
-            log("  · [" + t("저장경고") + f"] {type(e).__name__}: {e}")
-    return dom
 
 
 def _foreground_is_dialog() -> bool:

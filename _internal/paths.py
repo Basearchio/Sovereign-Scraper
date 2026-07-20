@@ -3,7 +3,7 @@
 MODULE_NAME: paths.py
 PURPOSE: 사이트/대상 → 파일 경로 규칙(leaf). 캐시·출력 CSV·저장 HTML·레시피 경로를 사람이 읽기 쉬운
          '사이트라벨_순번'(예: incruit_1)으로 만든다. 순수 문자열/경로 계산 + 레시피 파일 스캔만.
-DEPENDENCY: 표준 라이브러리(os/csv/hashlib/urllib.parse)만. (core/schema 등 상위 import 금지 = leaf)
+DEPENDENCY: 표준 라이브러리(os/csv/glob/urllib.parse)만. (core/schema 등 상위 import 금지 = leaf)
 
 [명명 규칙 — 상태파일 없이 결정론]
 - 종류 접두사 + 사이트라벨 + 순번:  output_<label>_<n>.csv / recipes_<label>_<n>.csv /
@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import csv
 import glob
-import hashlib
 import os
 from urllib.parse import urlparse
 
@@ -48,15 +47,6 @@ def _url_key(target: str) -> str:
         u = urlparse(target)
         return f"{u.netloc}{u.path}?{u.query}"
     return os.path.basename(target.replace("\\", "/"))
-
-
-def _site_key(target: str):
-    """(구) 사이트키 — netloc+path 납작화 + md5 10자. 하위호환용으로 유지(cli 가 import).
-    현재 파일명 규칙은 _slot 을 쓰지만, 외부에서 참조할 수 있어 시그니처를 보존한다."""
-    key = _url_key(target)
-    digest = hashlib.md5(key.encode("utf-8")).hexdigest()[:10]
-    safe = "".join(c if c.isalnum() else "_" for c in key)[:40]
-    return safe, digest
 
 
 # 복합 TLD(2단 최상위) — 이 경우 사이트 이름은 그 앞 조각. (한국/영연방 등 흔한 것)
