@@ -16,13 +16,16 @@ flowchart TD
     Menu --> M1["1. 크롤링<br/>(URL/HTML 한 페이지·목록)"]
     Menu --> M2["2. 체인 크롤링<br/>(목록 CSV → 상세페이지)"]
     Menu --> M3["3. 과거 작업 다시하기<br/>(replay)"]
-    Menu --> M4["4. 레시피<br/>(읽어들이기·공유·검색)"]
-    Menu --> M5["5. 설정<br/>(LLM·기본값·개발자도구)"]
+    Menu --> M4["4. 예약 실행<br/>(Windows 작업 스케줄러<br/>등록·조회·삭제)"]
+    Menu --> M5["5. 레시피<br/>(읽어들이기·공유·검색)"]
+    Menu --> M6["6. 설정<br/>(LLM·기본값·개발자도구)"]
     M1 --> Crawl["크롤 파이프라인<br/>(그림 2)"]
     M2 --> Chain["체인 파이프라인<br/>(목록 링크 → 상세 단일 레코드)"]
-    M3 --> Replay["_runs.csv 성공건 → 입력 없이 재현<br/>→ 윈도우 스케줄러로 정기 수집"]
-    M4 --> Reg["레시피 공유<br/>(그림 3)"]
-    M5 --> Set["LLM 공급자 · 저장/로드 기본값<br/>· doctor · 역량 매트릭스"]
+    M3 --> Replay["_runs.csv 성공건 → 입력 없이 재현"]
+    M4 --> Sched["scheduler.py(섬)이 schtasks 등록<br/>실행 명령=replay.py <선택> · SHC_ 접두사로만 조회/삭제"]
+    Replay -. "정기 자동화하려면" .-> M4
+    M5 --> Reg["레시피 공유<br/>(그림 3)"]
+    M6 --> Set["LLM 공급자 · 저장/로드 기본값<br/>· doctor · 역량 매트릭스"]
 ```
 
 ## 2. 핵심 크롤 파이프라인 — by-example → 자가 치유 → 저장

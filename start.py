@@ -44,6 +44,7 @@ CLI = os.path.join(HERE, "cli.py")             # front(파워유저용)
 REPLAY = os.path.join(HERE, "replay.py")       # front
 CAP = os.path.join(INTERNAL, "capabilities.py")   # back(내부 도구)
 DOCTOR = os.path.join(INTERNAL, "doctor.py")      # back
+SCHEDULER = os.path.join(INTERNAL, "scheduler.py")   # back(윈도우 작업 스케줄러 등록/조회/삭제, 섬)
 ENV_PATH = os.path.join(HERE, ".env")
 
 
@@ -87,6 +88,12 @@ def action_replay():
     """과거 작업 다시하기(replay) — 과거 성공한 크롤링을 골라 다시 실행(배치). 내부적으로 replay.py."""
     print("· " + t("과거 성공한 크롤링을 번호로 골라 다시 실행합니다(레시피 자동 로드)."))
     _run([sys.executable, REPLAY])
+
+
+def action_scheduler():
+    """예약 실행 — Windows 작업 스케줄러에 replay.py 재현을 등록/조회/삭제. 내부적으로 scheduler.py
+    (다른 파이썬 파일과 무관한 섬 — start 는 서브프로세스로 띄우기만 한다)."""
+    _run([sys.executable, SCHEDULER])
 
 
 def action_capabilities():
@@ -393,6 +400,7 @@ MENU = [
     ("크롤링 (URL/HTML 한 페이지·목록)", action_crawl),
     ("체인 크롤링 (목록 CSV → 상세페이지)", action_chain),
     ("과거 작업 다시하기 (저장된 작업 다시 실행)", action_replay),
+    ("예약 실행 (Windows 작업 스케줄러 등록·조회·삭제)", action_scheduler),
     ("레시피 (받은 것 읽어들이기 · 내 것 공유)", action_recipes),
     ("설정 (LLM · 레시피 기본값 · 개발자 도구)", action_settings),
 ]

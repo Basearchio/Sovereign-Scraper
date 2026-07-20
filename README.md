@@ -65,9 +65,10 @@ flowchart TD
     Venv --> Menu
     Menu --> M1["1. Crawl"]
     Menu --> M2["2. Chain crawl<br/>(list → detail pages)"]
-    Menu --> M3["3. Re-run past jobs<br/>(replay · scheduling)"]
-    Menu --> M4["4. Recipes<br/>(import · share · search)"]
-    Menu --> M5["5. Settings"]
+    Menu --> M3["3. Re-run past jobs<br/>(replay)"]
+    Menu --> M4["4. Schedule<br/>(Windows Task Scheduler)"]
+    Menu --> M5["5. Recipes<br/>(import · share · search)"]
+    Menu --> M6["6. Settings"]
 ```
 
 **Core crawl flow** (no per-site hardcoding):
@@ -89,7 +90,7 @@ flowchart TD
     G --> K["Recur via replay / scheduler"]
 ```
 
-> The full diagram (registry, deployment structure included) is at
+> The full diagram (recipe sharing, deployment structure, and module dependency layers included) is at
 > **[`_internal/docs/flowchart.md`](_internal/docs/flowchart.md)**; detailed requirements are in
 > **[`_internal/SRS.md`](_internal/SRS.md)** (Korean, canonical spec).
 
@@ -106,6 +107,7 @@ flowchart TD
 | **Free translation via your own browser** | Because it drives your *real* Chrome, turning on Chrome's built-in "always translate" for a language means foreign-language pages (RU/JA/ZH/AR news) are collected **already translated** into your language — no translation API or key. Structure is untouched, so self-healing is unaffected. ⚠ Translated text is sent to the browser's translation service (cookies are not) — use on public, non-sensitive pages only ([see Privacy](#privacy--data-sovereignty)) |
 | **Image fields** | Picks the representative image per record by structure → keeps **both the remote URL and an offline copy** |
 | **Accumulate · replay · audit** | CSV accumulation (4 save modes) · recipe (CSV) replay · `_runs.csv` audit log · bulk `replay` |
+| **Scheduling automation** | Register/list/delete Windows Task Scheduler jobs from the menu (no need to know schtasks) — all sites or just one, hourly/daily/weekly/once |
 | **Chain crawling** | Follows the link column of a list CSV → collects each detail page as a single record |
 | **Success guard** | Multi-layer verification of "did we actually get the fields we wanted?" — won't mistake a login wall or empty page for success |
 | **Auto re-learning (optional)** | If cheap methods all fail, an offline LLM analyzes the save_as HTML wholesale to rediscover fields (zero extra live requests) |
@@ -120,9 +122,10 @@ flowchart TD
 |---|---|
 | **1. Crawl** | A single URL/HTML page or a list. Walks you through load/save method, address, and (if applicable) re-learning |
 | **2. Chain crawl** | Follows links from a list CSV to collect detail pages, two-stage |
-| **3. Re-run past jobs** | Pick a previously successful crawl by number and replay it with no input → schedule via Windows Task Scheduler |
-| **4. Recipes** | `Import` (apply a received recipe to your URL and run it) / `Share` (mask then upload) / `Find online` (search the registry) |
-| **5. Settings** | LLM provider · save/load defaults · language (ko/en) · (dev) health check, capability matrix |
+| **3. Re-run past jobs** | Pick a previously successful crawl by number and replay it with no input |
+| **4. Schedule** | Register/list/delete recurring `replay` runs in Windows Task Scheduler (no command line needed) |
+| **5. Recipes** | `Import` (apply a received recipe to your URL and run it) / `Share` (mask, then post to the shared board) / `Find online` (search the shared board) |
+| **6. Settings** | LLM provider · save/load defaults · language (ko/en) · (dev) health check, capability matrix |
 
 ---
 
@@ -169,7 +172,7 @@ it runs the crawl once, so **your own run history and your own recipe are create
 - **Proof it runs LLM-free**: the auto-generated [capability matrix](_internal/docs/capabilities.md) marks
   every field actually extracted with `:V`. Rows with generic names (`f1`, `f2` …) were pulled **with LLM
   naming turned off** — only the automatic naming is skipped; the extraction itself still succeeds.
-- **No automatic push**: sharing is always *mask → human review → PR*. Your search terms never leak as-is.
+- **No automatic push**: sharing is always *mask → human review → board post*. Your search terms never leak as-is.
 - **Minimized footprint**: blocked sites get 1 page and no automatic retries. Heavy analysis only ever runs
   against locally saved HTML.
 - **If you enable Chrome's built-in translation** (the free-translation trick above): the visible text of a
