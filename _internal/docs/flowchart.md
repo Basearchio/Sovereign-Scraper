@@ -94,3 +94,87 @@ flowchart TD
     INT --> I3["tests/ · docs/ · fixtures/"]
     F1 -. "sys.path += _internal (shim)" .-> INT
 ```
+
+## 5. 모듈 의존 구조(계층) — v6.8 전수 감사 반영
+
+> 화살표 = import 방향(위→아래로만, 순환 없음 — 경계는 주석이 아니라 테스트가 강제).
+> **노란 테두리** = v6.8 에서 신설/역할이 확대된 모듈. 세부 규율은 SRS §5-b.
+
+```mermaid
+flowchart TD
+    classDef changed fill:#fff8e1,stroke:#f9a825,stroke-width:2px
+
+    subgraph FRONT ["진입점 (front)"]
+        START["start.py<br/>메뉴 런처"]
+        REPLAY["replay.py<br/>재현 배치"]
+        CLI["cli.py — 단발 크롤 컨트롤러<br/>main = 흐름 조율만<br/>(가드 _validate_run · 저장 _persist_success 분리)"]
+        CHAIN["chain.py<br/>체인 컨트롤러 (cli 의 동료)"]
+    end
+    START -. "subprocess" .-> CLI
+    START -. "subprocess" .-> REPLAY
+    REPLAY -. "subprocess<br/>(레시피 주입)" .-> CLI
+    CLI -- "target=.csv<br/>(지연 import)" --> CHAIN
+
+    subgraph SHARED ["공유 실행 계층 (cli·chain 이 둘 다 사용)"]
+        LOADER["loader<br/>DOM 획득 · 차단 시 save_as 전환"]
+        AUTOHEAL["autoheal<br/>자동 재학습(최후 사다리)"]
+        GUARDS["guards<br/>성공 가드 판정"]
+        LLMLOC["llm_locators<br/>DOM+LLM 접착층"]
+    end
+    CLI --> LOADER
+    CLI --> AUTOHEAL
+    CLI --> GUARDS
+    CLI --> LLMLOC
+    CHAIN --> LOADER
+
+    subgraph SIBLING ["엔진 형제 계층 (서로 모름 — 탈결합)"]
+        ENGINE["engine<br/>추출·자가치유 (LLM-FREE, 훅만 호출)"]
+        LOCATORS["locators<br/>by-example 위치탐색"]
+    end
+    AUTOHEAL --> ENGINE
+    LLMLOC --> ENGINE
+    CLI --> LOCATORS
+
+    subgraph STRATEGY ["수집 전략 · 서비스 · 데이터 계약"]
+        CRAWLERS["crawlers/*<br/>static · dynamic · picker<br/>chrome = Save As 단일<br/>(CDP profile 경로 v6.8 제거)"]
+        SVC["services/llm_service<br/>LLM 전송(OpenAI 호환)"]
+        SCHEMA["core/schema<br/>레시피 직렬화"]
+    end
+    LOADER --> CRAWLERS
+    ENGINE --> CRAWLERS
+    ENGINE --> SCHEMA
+    LLMLOC --> SVC
+    class CRAWLERS changed
+
+    subgraph LEAF ["leaf 계층 (상위를 모름)"]
+        STRUCT["structure · values · hooks<br/>segment · field_heuristics"]
+        PATHS["paths<br/>경로 규칙"]
+        OUTPUT["output<br/>save_csv + resolve_save_mode<br/>(저장방식 결정 단일 출처)"]
+        RUNLOG["runlog<br/>record_run · resolve_batch<br/>(기록+회차 단일 출처)"]
+        MISC["dedup · safe_io<br/>heal_knowledge"]
+        CFG["crawl_config<br/>기본 저장/로드 방식"]
+        I18N["i18n<br/>다국어 t()"]
+    end
+    ENGINE --> STRUCT
+    LOCATORS --> STRUCT
+    CLI --> OUTPUT
+    CLI --> RUNLOG
+    CHAIN --> OUTPUT
+    CHAIN --> RUNLOG
+    CLI --> PATHS
+    class OUTPUT,RUNLOG changed
+
+    ENVF["envfile — 루트 .env 단일 파서 (v6.8 신설)<br/>start/llm_service/crawl_config/i18n 의 4벌 복제 통합 · 최하위 leaf"]
+    START --> ENVF
+    SVC --> ENVF
+    I18N --> ENVF
+    CFG --> ENVF
+    class ENVF changed
+    class CLI changed
+```
+
+> v6.8 변경 요지: ① `crawlers/chrome.py` 의 CDP profile 경로(-181줄)를 제거해 '진짜 크롬' 진입점을
+> Save As 하나로 확정(부활 방지 테스트 포함). ② `.env` 파서 4벌을 `envfile`(최하위 leaf)로 통합 —
+> leaf 규율이 복제를 유발하면 규율을 깨는 대신 '더 낮은 공용 leaf'를 만든다. ③ 저장방식/회차/기록
+> 규칙을 `output`·`runlog` 단일 출처로 옮겨 cli·chain 중복 제거, cli.main 은 가드·저장을 함수로
+> 분리해 흐름 조율만 남김.
